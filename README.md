@@ -114,7 +114,13 @@ npm install
 
 Poi riavvia il server. Se l'app sembra non aggiornarsi, ricarica la pagina senza cache (Cmd/Ctrl+Shift+R): la PWA tiene una copia dei file.
 
+## Deploy automatico (Raspberry)
+
+Scheletro in `.github/workflows/`: `ci.yml` esegue i test su ogni PR; `deploy.sh` (via `deploy.yml`) copia il codice sul Raspberry e riavvia il servizio, tramite un runner GitHub self-hosted con label `smart-clima`. Il deploy resta spento finché non imposti le variabili di repository `DEPLOY_ENABLED=true` e `DEPLOY_DIR`. Configurazione, dati e `.env` sul Raspberry non vengono mai sovrascritti.
+
 ## Sviluppo
+
+Si lavora su branch `feature/<nome>` e si porta in `main` con una pull request.
 
 ```bash
 npm test        # test della logica degli scenari (nessun impianto necessario)

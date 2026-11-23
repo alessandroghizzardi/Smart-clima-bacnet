@@ -1,0 +1,22 @@
+# Deploy sul Raspberry tramite runner self-hosted (da installare sul Raspberry).
+# Scheletro: resta spento finché non si imposta la variabile di repository DEPLOY_ENABLED=true
+# (Settings → Secrets and variables → Actions → Variables).
+name: Deploy
+
+on:
+  push:
+    branches: [main]
+  workflow_dispatch:
+
+concurrency: deploy
+
+jobs:
+  deploy:
+    if: vars.DEPLOY_ENABLED == 'true'
+    runs-on: [self-hosted, smart-clima]
+    steps:
+      - uses: actions/checkout@v4
+      - run: scripts/deploy.sh
+        env:
+          DEPLOY_DIR: ${{ vars.DEPLOY_DIR }}          # cartella di installazione sul Raspberry
+          DEPLOY_SERVICE: ${{ vars.DEPLOY_SERVICE }}  # nome del servizio systemd (default: smart-clima)

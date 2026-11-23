@@ -1,0 +1,96 @@
+{
+  "note": "Esempio: copia in config/units.json e adatta nomi, piani e potenze alle tue unità interne. 'id' è l'indirizzo dell'unità in BACnet (vedi bacnet-map).",
+  "unita": [
+    {
+      "id": "11",
+      "nome": "PT Zona 1",
+      "stanza": "Stanza 1",
+      "piano": "terra",
+      "kw": 2.5
+    },
+    {
+      "id": "12",
+      "nome": "PT Zona 2",
+      "stanza": "Stanza 2",
+      "piano": "terra",
+      "kw": 2.5
+    },
+    {
+      "id": "13",
+      "nome": "PT Zona 3",
+      "stanza": "Stanza 3",
+      "piano": "terra",
+      "kw": 2.5
+    },
+    {
+      "id": "14",
+      "nome": "PT Zona 4",
+      "stanza": "Stanza 4",
+      "piano": "terra",
+      "kw": 2.5
+    },
+    {
+      "id": "15",
+      "nome": "PT Zona 5",
+      "stanza": "Stanza 5",
+      "piano": "terra",
+      "kw": 4.0
+    },
+    {
+      "id": "16",
+      "nome": "PT Zona 6",
+      "stanza": "Stanza 6",
+      "piano": "terra",
+      "kw": 5.0
+    },
+    {
+      "id": "17",
+      "nome": "PT Zona 7",
+      "stanza": "Stanza 7",
+      "piano": "terra",
+      "kw": 2.5
+    },
+    {
+      "id": "18",
+      "nome": "PT Zona 8",
+      "stanza": "Stanza 8",
+      "piano": "terra",
+      "kw": 2.5
+    },
+    {
+      "id": "21",
+      "nome": "P1 Zona 1",
+      "stanza": "Stanza 9",
+      "piano": "primo",
+      "kw": 2.5
+    },
+    {
+      "id": "22",
+      "nome": "P1 Zona 2",
+      "stanza": "Stanza 10",
+      "piano": "primo",
+      "kw": 2.5
+    },
+    {
+      "id": "23",
+      "nome": "P1 Zona 3",
+      "stanza": "Stanza 11",
+      "piano": "primo",
+      "kw": 2.5
+    },
+    {
+      "id": "24",
+      "nome": "P1 Zona 4",
+      "stanza": "Stanza 12",
+      "piano": "primo",
+      "kw": 2.5
+    },
+    {
+      "id": "25",
+      "nome": "P1 Zona 5",
+      "stanza": "Stanza 13",
+      "piano": "primo",
+      "kw": 3.2
+    }
+  ]
+}

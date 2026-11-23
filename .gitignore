@@ -1,0 +1,21 @@
+node_modules/
+.env
+.DS_Store
+
+# database e chiavi (si creano con `npm run setup`)
+data/
+
+# configurazione dell'impianto: locale, si parte dai file *.example.json
+config/units.json
+config/bacnet-map.json
+
+# esportazione degli oggetti BACnet del proprio impianto
+scripts/oggetti-bacnet-letti.json
+
+# materiale di lavoro personale
+proposte/
+
+# note di lavoro personali
+BACKLOG.md
+PIANO_TEST.md
+DESIGN_BRIEF.md

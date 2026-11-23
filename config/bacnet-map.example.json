@@ -1,0 +1,704 @@
+{
+ "11": {
+  "startStopCmd": {
+   "type": 4,
+   "instance": 4353
+  },
+  "startStopStatus": {
+   "type": 3,
+   "instance": 4354
+  },
+  "setTempCmd": {
+   "type": 2,
+   "instance": 4365
+  },
+  "setTempStatus": {
+   "type": 0,
+   "instance": 4371
+  },
+  "roomTemp": {
+   "type": 0,
+   "instance": 4366
+  },
+  "modeCmd": {
+   "type": 14,
+   "instance": 4359
+  },
+  "modeStatus": {
+   "type": 13,
+   "instance": 4360
+  },
+  "fanCmd": {
+   "type": 14,
+   "instance": 4363
+  },
+  "fanStatus": {
+   "type": 13,
+   "instance": 4364
+  },
+  "swingCmd": {
+   "type": 4,
+   "instance": 4361
+  },
+  "swingStatus": {
+   "type": 3,
+   "instance": 4362
+  },
+  "alarm": {
+   "type": 3,
+   "instance": 4367
+  },
+  "malfunction": {
+   "type": 0,
+   "instance": 4368
+  }
+ },
+ "12": {
+  "startStopCmd": {
+   "type": 4,
+   "instance": 4609
+  },
+  "startStopStatus": {
+   "type": 3,
+   "instance": 4610
+  },
+  "setTempCmd": {
+   "type": 2,
+   "instance": 4621
+  },
+  "setTempStatus": {
+   "type": 0,
+   "instance": 4627
+  },
+  "roomTemp": {
+   "type": 0,
+   "instance": 4622
+  },
+  "modeCmd": {
+   "type": 14,
+   "instance": 4615
+  },
+  "modeStatus": {
+   "type": 13,
+   "instance": 4616
+  },
+  "fanCmd": {
+   "type": 14,
+   "instance": 4619
+  },
+  "fanStatus": {
+   "type": 13,
+   "instance": 4620
+  },
+  "swingCmd": {
+   "type": 4,
+   "instance": 4617
+  },
+  "swingStatus": {
+   "type": 3,
+   "instance": 4618
+  },
+  "alarm": {
+   "type": 3,
+   "instance": 4623
+  },
+  "malfunction": {
+   "type": 0,
+   "instance": 4624
+  }
+ },
+ "13": {
+  "startStopCmd": {
+   "type": 4,
+   "instance": 4865
+  },
+  "startStopStatus": {
+   "type": 3,
+   "instance": 4866
+  },
+  "setTempCmd": {
+   "type": 2,
+   "instance": 4877
+  },
+  "setTempStatus": {
+   "type": 0,
+   "instance": 4883
+  },
+  "roomTemp": {
+   "type": 0,
+   "instance": 4878
+  },
+  "modeCmd": {
+   "type": 14,
+   "instance": 4871
+  },
+  "modeStatus": {
+   "type": 13,
+   "instance": 4872
+  },
+  "fanCmd": {
+   "type": 14,
+   "instance": 4875
+  },
+  "fanStatus": {
+   "type": 13,
+   "instance": 4876
+  },
+  "swingCmd": {
+   "type": 4,
+   "instance": 4873
+  },
+  "swingStatus": {
+   "type": 3,
+   "instance": 4874
+  },
+  "alarm": {
+   "type": 3,
+   "instance": 4879
+  },
+  "malfunction": {
+   "type": 0,
+   "instance": 4880
+  }
+ },
+ "14": {
+  "startStopCmd": {
+   "type": 4,
+   "instance": 5121
+  },
+  "startStopStatus": {
+   "type": 3,
+   "instance": 5122
+  },
+  "setTempCmd": {
+   "type": 2,
+   "instance": 5133
+  },
+  "setTempStatus": {
+   "type": 0,
+   "instance": 5139
+  },
+  "roomTemp": {
+   "type": 0,
+   "instance": 5134
+  },
+  "modeCmd": {
+   "type": 14,
+   "instance": 5127
+  },
+  "modeStatus": {
+   "type": 13,
+   "instance": 5128
+  },
+  "fanCmd": {
+   "type": 14,
+   "instance": 5131
+  },
+  "fanStatus": {
+   "type": 13,
+   "instance": 5132
+  },
+  "swingCmd": {
+   "type": 4,
+   "instance": 5129
+  },
+  "swingStatus": {
+   "type": 3,
+   "instance": 5130
+  },
+  "alarm": {
+   "type": 3,
+   "instance": 5135
+  },
+  "malfunction": {
+   "type": 0,
+   "instance": 5136
+  }
+ },
+ "15": {
+  "startStopCmd": {
+   "type": 4,
+   "instance": 5377
+  },
+  "startStopStatus": {
+   "type": 3,
+   "instance": 5378
+  },
+  "setTempCmd": {
+   "type": 2,
+   "instance": 5389
+  },
+  "setTempStatus": {
+   "type": 0,
+   "instance": 5395
+  },
+  "roomTemp": {
+   "type": 0,
+   "instance": 5390
+  },
+  "modeCmd": {
+   "type": 14,
+   "instance": 5383
+  },
+  "modeStatus": {
+   "type": 13,
+   "instance": 5384
+  },
+  "fanCmd": {
+   "type": 14,
+   "instance": 5387
+  },
+  "fanStatus": {
+   "type": 13,
+   "instance": 5388
+  },
+  "swingCmd": {
+   "type": 4,
+   "instance": 5385
+  },
+  "swingStatus": {
+   "type": 3,
+   "instance": 5386
+  },
+  "alarm": {
+   "type": 3,
+   "instance": 5391
+  },
+  "malfunction": {
+   "type": 0,
+   "instance": 5392
+  }
+ },
+ "16": {
+  "startStopCmd": {
+   "type": 4,
+   "instance": 5633
+  },
+  "startStopStatus": {
+   "type": 3,
+   "instance": 5634
+  },
+  "setTempCmd": {
+   "type": 2,
+   "instance": 5645
+  },
+  "setTempStatus": {
+   "type": 0,
+   "instance": 5651
+  },
+  "roomTemp": {
+   "type": 0,
+   "instance": 5646
+  },
+  "modeCmd": {
+   "type": 14,
+   "instance": 5639
+  },
+  "modeStatus": {
+   "type": 13,
+   "instance": 5640
+  },
+  "fanCmd": {
+   "type": 14,
+   "instance": 5643
+  },
+  "fanStatus": {
+   "type": 13,
+   "instance": 5644
+  },
+  "swingCmd": {
+   "type": 4,
+   "instance": 5641
+  },
+  "swingStatus": {
+   "type": 3,
+   "instance": 5642
+  },
+  "alarm": {
+   "type": 3,
+   "instance": 5647
+  },
+  "malfunction": {
+   "type": 0,
+   "instance": 5648
+  }
+ },
+ "17": {
+  "startStopCmd": {
+   "type": 4,
+   "instance": 5889
+  },
+  "startStopStatus": {
+   "type": 3,
+   "instance": 5890
+  },
+  "setTempCmd": {
+   "type": 2,
+   "instance": 5901
+  },
+  "setTempStatus": {
+   "type": 0,
+   "instance": 5907
+  },
+  "roomTemp": {
+   "type": 0,
+   "instance": 5902
+  },
+  "modeCmd": {
+   "type": 14,
+   "instance": 5895
+  },
+  "modeStatus": {
+   "type": 13,
+   "instance": 5896
+  },
+  "fanCmd": {
+   "type": 14,
+   "instance": 5899
+  },
+  "fanStatus": {
+   "type": 13,
+   "instance": 5900
+  },
+  "swingCmd": {
+   "type": 4,
+   "instance": 5897
+  },
+  "swingStatus": {
+   "type": 3,
+   "instance": 5898
+  },
+  "alarm": {
+   "type": 3,
+   "instance": 5903
+  },
+  "malfunction": {
+   "type": 0,
+   "instance": 5904
+  }
+ },
+ "18": {
+  "startStopCmd": {
+   "type": 4,
+   "instance": 6145
+  },
+  "startStopStatus": {
+   "type": 3,
+   "instance": 6146
+  },
+  "setTempCmd": {
+   "type": 2,
+   "instance": 6157
+  },
+  "setTempStatus": {
+   "type": 0,
+   "instance": 6163
+  },
+  "roomTemp": {
+   "type": 0,
+   "instance": 6158
+  },
+  "modeCmd": {
+   "type": 14,
+   "instance": 6151
+  },
+  "modeStatus": {
+   "type": 13,
+   "instance": 6152
+  },
+  "fanCmd": {
+   "type": 14,
+   "instance": 6155
+  },
+  "fanStatus": {
+   "type": 13,
+   "instance": 6156
+  },
+  "swingCmd": {
+   "type": 4,
+   "instance": 6153
+  },
+  "swingStatus": {
+   "type": 3,
+   "instance": 6154
+  },
+  "alarm": {
+   "type": 3,
+   "instance": 6159
+  },
+  "malfunction": {
+   "type": 0,
+   "instance": 6160
+  }
+ },
+ "21": {
+  "startStopCmd": {
+   "type": 4,
+   "instance": 8449
+  },
+  "startStopStatus": {
+   "type": 3,
+   "instance": 8450
+  },
+  "setTempCmd": {
+   "type": 2,
+   "instance": 8461
+  },
+  "setTempStatus": {
+   "type": 0,
+   "instance": 8467
+  },
+  "roomTemp": {
+   "type": 0,
+   "instance": 8462
+  },
+  "modeCmd": {
+   "type": 14,
+   "instance": 8455
+  },
+  "modeStatus": {
+   "type": 13,
+   "instance": 8456
+  },
+  "fanCmd": {
+   "type": 14,
+   "instance": 8459
+  },
+  "fanStatus": {
+   "type": 13,
+   "instance": 8460
+  },
+  "swingCmd": {
+   "type": 4,
+   "instance": 8457
+  },
+  "swingStatus": {
+   "type": 3,
+   "instance": 8458
+  },
+  "alarm": {
+   "type": 3,
+   "instance": 8463
+  },
+  "malfunction": {
+   "type": 0,
+   "instance": 8464
+  }
+ },
+ "22": {
+  "startStopCmd": {
+   "type": 4,
+   "instance": 8705
+  },
+  "startStopStatus": {
+   "type": 3,
+   "instance": 8706
+  },
+  "setTempCmd": {
+   "type": 2,
+   "instance": 8717
+  },
+  "setTempStatus": {
+   "type": 0,
+   "instance": 8723
+  },
+  "roomTemp": {
+   "type": 0,
+   "instance": 8718
+  },
+  "modeCmd": {
+   "type": 14,
+   "instance": 8711
+  },
+  "modeStatus": {
+   "type": 13,
+   "instance": 8712
+  },
+  "fanCmd": {
+   "type": 14,
+   "instance": 8715
+  },
+  "fanStatus": {
+   "type": 13,
+   "instance": 8716
+  },
+  "swingCmd": {
+   "type": 4,
+   "instance": 8713
+  },
+  "swingStatus": {
+   "type": 3,
+   "instance": 8714
+  },
+  "alarm": {
+   "type": 3,
+   "instance": 8719
+  },
+  "malfunction": {
+   "type": 0,
+   "instance": 8720
+  }
+ },
+ "23": {
+  "startStopCmd": {
+   "type": 4,
+   "instance": 8961
+  },
+  "startStopStatus": {
+   "type": 3,
+   "instance": 8962
+  },
+  "setTempCmd": {
+   "type": 2,
+   "instance": 8973
+  },
+  "setTempStatus": {
+   "type": 0,
+   "instance": 8979
+  },
+  "roomTemp": {
+   "type": 0,
+   "instance": 8974
+  },
+  "modeCmd": {
+   "type": 14,
+   "instance": 8967
+  },
+  "modeStatus": {
+   "type": 13,
+   "instance": 8968
+  },
+  "fanCmd": {
+   "type": 14,
+   "instance": 8971
+  },
+  "fanStatus": {
+   "type": 13,
+   "instance": 8972
+  },
+  "swingCmd": {
+   "type": 4,
+   "instance": 8969
+  },
+  "swingStatus": {
+   "type": 3,
+   "instance": 8970
+  },
+  "alarm": {
+   "type": 3,
+   "instance": 8975
+  },
+  "malfunction": {
+   "type": 0,
+   "instance": 8976
+  }
+ },
+ "24": {
+  "startStopCmd": {
+   "type": 4,
+   "instance": 9217
+  },
+  "startStopStatus": {
+   "type": 3,
+   "instance": 9218
+  },
+  "setTempCmd": {
+   "type": 2,
+   "instance": 9229
+  },
+  "setTempStatus": {
+   "type": 0,
+   "instance": 9235
+  },
+  "roomTemp": {
+   "type": 0,
+   "instance": 9230
+  },
+  "modeCmd": {
+   "type": 14,
+   "instance": 9223
+  },
+  "modeStatus": {
+   "type": 13,
+   "instance": 9224
+  },
+  "fanCmd": {
+   "type": 14,
+   "instance": 9227
+  },
+  "fanStatus": {
+   "type": 13,
+   "instance": 9228
+  },
+  "swingCmd": {
+   "type": 4,
+   "instance": 9225
+  },
+  "swingStatus": {
+   "type": 3,
+   "instance": 9226
+  },
+  "alarm": {
+   "type": 3,
+   "instance": 9231
+  },
+  "malfunction": {
+   "type": 0,
+   "instance": 9232
+  }
+ },
+ "25": {
+  "startStopCmd": {
+   "type": 4,
+   "instance": 9473
+  },
+  "startStopStatus": {
+   "type": 3,
+   "instance": 9474
+  },
+  "setTempCmd": {
+   "type": 2,
+   "instance": 9485
+  },
+  "setTempStatus": {
+   "type": 0,
+   "instance": 9491
+  },
+  "roomTemp": {
+   "type": 0,
+   "instance": 9486
+  },
+  "modeCmd": {
+   "type": 14,
+   "instance": 9479
+  },
+  "modeStatus": {
+   "type": 13,
+   "instance": 9480
+  },
+  "fanCmd": {
+   "type": 14,
+   "instance": 9483
+  },
+  "fanStatus": {
+   "type": 13,
+   "instance": 9484
+  },
+  "swingCmd": {
+   "type": 4,
+   "instance": 9481
+  },
+  "swingStatus": {
+   "type": 3,
+   "instance": 9482
+  },
+  "alarm": {
+   "type": 3,
+   "instance": 9487
+  },
+  "malfunction": {
+   "type": 0,
+   "instance": 9488
+  }
+ }
+}

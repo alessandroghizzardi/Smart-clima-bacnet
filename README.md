@@ -116,7 +116,7 @@ Poi riavvia il server. Se l'app sembra non aggiornarsi, ricarica la pagina senza
 
 ## Deploy automatico (Raspberry)
 
-Scheletro in `.github/workflows/`: `ci.yml` esegue i test su ogni PR; `deploy.sh` (via `deploy.yml`) copia il codice sul Raspberry e riavvia il servizio, tramite un runner GitHub self-hosted con label `smart-clima`. Il deploy resta spento finché non imposti le variabili di repository `DEPLOY_ENABLED=true` e `DEPLOY_DIR`. Configurazione, dati e `.env` sul Raspberry non vengono mai sovrascritti.
+Scheletro in `.github/workflows/`: `ci.yml` esegue i test su ogni PR; il deploy parte **solo quando si pubblica un tag `v*`** (es. `git tag v1.0.0 && git push origin v1.0.0`, da `main`): `deploy.sh` (via `deploy.yml`) copia il codice sul Raspberry e riavvia il servizio, tramite un runner GitHub self-hosted con label `smart-clima`. Il deploy resta spento finché non imposti le variabili di repository `DEPLOY_ENABLED=true` e `DEPLOY_DIR`. Configurazione, dati e `.env` sul Raspberry non vengono mai sovrascritti.
 
 ## Sviluppo
 

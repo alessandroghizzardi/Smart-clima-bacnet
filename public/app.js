@@ -375,7 +375,7 @@ function vScd() {
   ${LOGSC.length ? `<div class="lb">Cronologia</div><div class="panel" style="padding:4px 14px">${LOGSC.map(l => `<div class="lg"><time>${hm(l.ts)}</time><span class="k ${l.tipo === 'avviso' || l.tipo === 'errore' ? 'a' : ''}">${TAG_LOG[l.tipo] || 'Comando'}</span><span>${esc(l.testo)}</span></div>`).join('')}</div>` : ''}
   ${run ? `<div class="two" style="margin-top:14px">${RUN.fase < nTemp.length && !RUN.inAttesa ? `<button class="cta g${W()}" data-a="salta" data-i="${RUN.fase + 1}">${I(IC.right)}Salta alla fase ${RUN.fase + 2}</button>` : ''}<button class="cta g${W()}" data-a="modifica" data-id="${sc.id}">${I(IC.edit)}Modifica</button></div>
     <button class="cta bad${W()}" data-a="sheetStop">${I(IC.stop)}Interrompi scenario</button>`
-    : `<button class="cta${W()}" data-a="avvia" data-id="${sc.id}">Avvia ora</button><div class="two"><button class="cta g${W()}" data-a="modifica" data-id="${sc.id}">${I(IC.edit)}Modifica</button><button class="cta g${W()}" data-a="duplica" data-id="${sc.id}">${I(IC.copy)}Duplica</button></div><button class="cta bad${W()}" data-a="elimina" data-id="${sc.id}">Elimina</button>`}<div style="height:20px"></div>`;
+    : `<button class="cta${W()}" style="--c:var(--c${sc.modo})" data-a="avvia" data-id="${sc.id}">Avvia ora</button><div class="two"><button class="cta g${W()}" data-a="modifica" data-id="${sc.id}">${I(IC.edit)}Modifica</button><button class="cta g${W()}" data-a="duplica" data-id="${sc.id}">${I(IC.copy)}Duplica</button></div><button class="cta bad${W()}" data-a="elimina" data-id="${sc.id}">Elimina</button>`}<div style="height:20px"></div>`;
 }
 
 // ===== AMBIENTI (gruppi di unità: elenco, nuovo, modifica)

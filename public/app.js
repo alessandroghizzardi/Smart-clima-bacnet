@@ -788,7 +788,14 @@ const ACT = {
   mttarget(d) { S.ph.mant.target = clamp(S.ph.mant.target + Number(d.d)); render(); },
   mttemp(d) { S.ph.mant.temp = clamp(S.ph.mant.temp + Number(d.d)); render(); },
   mtritorno(d) { S.ph.mant.ritorno = clamp(S.ph.mant.ritorno + Number(d.d)); render(); },
-  phdel() { S.wz.fasi.splice(SUB.i, 1); if (S.wz.fasi[0] && !S.wz.fasi[0].inizio) S.wz.fasi[0].inizio = '08:00'; SUB = { k: 'wiz' }; render(); },
+  phdel() {
+    const i = SUB.i, f = S.wz.fasi[i], nome = f.tipo === 'off' ? 'Spegni impianto' : (S.ph.nome || `Fase ${i + 1}`);
+    conferma(`La fase "${nome}" viene tolta dallo scenario. Lo scenario si salva solo quando premi Salva.`, () => {
+      const w = S.wz, prima = w.fasi[0]; w.fasi.splice(i, 1);
+      if (w.fasi[0] && !w.fasi[0].inizio) w.fasi[0].inizio = i === 0 && prima.inizio ? prima.inizio : '08:00';
+      SUB = { k: 'wiz' }; render();
+    }, { titolo: 'Eliminare la fase?', ok: 'Elimina', pericolo: true });
+  },
   phsalva() {
     const w = S.wz, p = S.ph, i = SUB.i, nuova = SUB.nuova, off = p.tipo === 'off';
     if (off) {

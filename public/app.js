@@ -24,7 +24,7 @@ const IC = {
   bolt: '<path d="M13 3L5 14h6l-1 7 8-11h-6z"/>', loop: '<path d="M17 2l4 4-4 4"/><path d="M3 11V9a3 3 0 013-3h15"/><path d="M7 22l-4-4 4-4"/><path d="M21 13v2a3 3 0 01-3 3H3"/>',
   power: '<path d="M12 3v9M6.3 6.8a8 8 0 1 0 11.4 0"/>', refresh: '<path d="M20 11a8 8 0 1 0-2.3 5.7M20 4v7h-7"/>',
   back: '<path d="M15 5l-7 7 7 7"/>', plus: '<path d="M12 5v14M5 12h14"/>', minus: '<path d="M5 12h14"/>', check: '<path d="M5 12.5l4.5 4.5L19 7.5"/>',
-  edit: '<path d="M4 20h4L19 9l-4-4L4 16z"/>', copy: '<rect x="8" y="8" width="12" height="12" rx="2.5"/><path d="M16 8V6.5A2.5 2.5 0 0013.5 4h-7A2.5 2.5 0 004 6.5v7A2.5 2.5 0 006.5 16H8"/>', stop: '<rect x="6" y="6" width="12" height="12" rx="2"/>', play: '<path d="M7 4l13 8-13 8z"/>',
+  edit: '<path d="M4 20h4L19 9l-4-4L4 16z"/>', copy: '<rect x="8" y="8" width="12" height="12" rx="2.5"/><path d="M16 8V6.5A2.5 2.5 0 0013.5 4h-7A2.5 2.5 0 004 6.5v7A2.5 2.5 0 006.5 16H8"/>', stop: '<circle cx="12" cy="12" r="9"/><rect x="9.2" y="9.2" width="5.6" height="5.6" rx="1.2" fill="currentColor"/>', play: '<path d="M7 4l13 8-13 8z"/>',
   eye: '<path d="M2 12s4-7 10-7 10 7 10 7-4 7-10 7S2 12 2 12z"/><circle cx="12" cy="12" r="3"/>', pen: '<path d="M4 20l1-4L16 5l3 3L8 19z"/>',
   warn: '<path d="M12 3l10 18H2z"/><path d="M12 10v5M12 18v.5"/>', right: '<path d="M9 5l7 7-7 7"/>', left: '<path d="M15 5l-7 7 7 7"/>',
   osc: '<path d="M7 5l-4 4 4 4M17 11l4 4-4 4M3 9h13M21 15H8"/>', fermo: '<path d="M5 12h14"/>',

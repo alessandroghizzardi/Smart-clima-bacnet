@@ -1,6 +1,7 @@
 'use strict';
 // ===== Smart Clima — front-end (HTML+JS semplice, nessuna build). Le viste sono funzioni che ritornano HTML.
 const $ = (s, r = document) => r.querySelector(s);
+const MODI_LUNGO = { 1: 'Raffrescamento', 2: 'Deumidificazione', 3: 'Ventilazione', 4: 'Auto', 5: 'Riscaldamento' };
 const MODI = { 1: 'Raff.', 2: 'Deum.', 3: 'Vent.', 4: 'Auto', 5: 'Risc.' }, ORDINE_MODI = [1, 5, 3, 2, 4];
 const VENT = { 1: 'Min', 2: 'Med', 3: 'Max', 4: 'Auto' };
 const GG = ['Dom', 'Lun', 'Mar', 'Mer', 'Gio', 'Ven', 'Sab'], GG_ORD = [1, 2, 3, 4, 5, 6, 0], GG_L = ['D', 'L', 'M', 'M', 'G', 'V', 'S'];
@@ -24,7 +25,7 @@ const IC = {
   bolt: '<path d="M13 3L5 14h6l-1 7 8-11h-6z"/>', loop: '<path d="M17 2l4 4-4 4"/><path d="M3 11V9a3 3 0 013-3h15"/><path d="M7 22l-4-4 4-4"/><path d="M21 13v2a3 3 0 01-3 3H3"/>',
   power: '<path d="M12 3v9M6.3 6.8a8 8 0 1 0 11.4 0"/>', refresh: '<path d="M20 11a8 8 0 1 0-2.3 5.7M20 4v7h-7"/>',
   back: '<path d="M15 5l-7 7 7 7"/>', plus: '<path d="M12 5v14M5 12h14"/>', minus: '<path d="M5 12h14"/>', check: '<path d="M5 12.5l4.5 4.5L19 7.5"/>',
-  edit: '<path d="M4 20h4L19 9l-4-4L4 16z"/>', copy: '<rect x="8" y="8" width="12" height="12" rx="2.5"/><path d="M16 8V6.5A2.5 2.5 0 0013.5 4h-7A2.5 2.5 0 004 6.5v7A2.5 2.5 0 006.5 16H8"/>', stop: '<rect x="5" y="5" width="14" height="14" rx="4.5" fill="currentColor" fill-opacity=".25"/>', play: '<path d="M7 4l13 8-13 8z"/>',
+  grip: '<path d="M9 7h.01M15 7h.01M9 12h.01M15 12h.01M9 17h.01M15 17h.01" stroke-width="3.2"/>', edit: '<path d="M4 20h4L19 9l-4-4L4 16z"/>', copy: '<rect x="8" y="8" width="12" height="12" rx="2.5"/><path d="M16 8V6.5A2.5 2.5 0 0013.5 4h-7A2.5 2.5 0 004 6.5v7A2.5 2.5 0 006.5 16H8"/>', stop: '<circle cx="12" cy="12" r="9.5" stroke-width="2.6"/><rect x="8.3" y="8.3" width="7.4" height="7.4" rx="2" fill="currentColor" stroke="none"/>', play: '<path d="M7 4l13 8-13 8z"/>',
   eye: '<path d="M2 12s4-7 10-7 10 7 10 7-4 7-10 7S2 12 2 12z"/><circle cx="12" cy="12" r="3"/>', pen: '<path d="M4 20l1-4L16 5l3 3L8 19z"/>',
   warn: '<path d="M12 3l10 18H2z"/><path d="M12 10v5M12 18v.5"/>', right: '<path d="M9 5l7 7-7 7"/>', left: '<path d="M15 5l-7 7 7 7"/>',
   osc: '<path d="M7 5l-4 4 4 4M17 11l4 4-4 4M3 9h13M21 15H8"/>', fermo: '<path d="M5 12h14"/>',
@@ -432,6 +433,34 @@ document.addEventListener('mousemove', e => {
   if (PRESS?.mouse && Math.hypot(e.clientX - PRESS.x, e.clientY - PRESS.y) > 5) { dragInizio(PRESS.row, PRESS.y); dragMuovi(e.clientY); }
 });
 document.addEventListener('mouseup', () => { if (PRESS?.mouse) PRESS = null; if (DRAG) dragFine(); });
+// Maniglie delle fasi: si trascina dalla maniglia; le durate restano, cambiano gli orari (la prima fase mantiene l'orario di inizio).
+let FD = null;
+function faseRiordina(ord) {
+  const w = S.wz, mv = w.fasi.filter(f => f.tipo !== 'off'), off = w.fasi.filter(f => f.tipo === 'off');
+  const dur = mv.map((f, i) => { const a = minuti(i === 0 ? f.inizio : mv[i - 1].fino); let d = (minuti(f.fino) - a + 1440) % 1440; return d || 1440; });
+  const ini = mv[0].inizio, nuove = ord.map(i => ({ f: mv[i], d: dur[i] }));
+  let t = minuti(ini);
+  w.fasi = nuove.map(({ f, d }, k) => { t += d; const g = { ...f, fino: hhmm(t % 1440) }; if (k === 0) g.inizio = ini; else delete g.inizio; return g; }).concat(off);
+  w.fasi.forEach((f, i) => { if (f.tipo !== 'off' && /^Fase \d+$/.test(f.nome || '')) f.nome = `Fase ${i + 1}`; });
+}
+document.addEventListener('pointerdown', e => {
+  const g = e.target.closest('.gr[data-i]'); if (!g || !S.wz || SUB?.k !== 'wiz') return; const row = g.closest('.ph'); if (!row) return;
+  e.preventDefault(); const r = row.getBoundingClientRect(); FD = { row, off: e.clientY - r.top, id: e.pointerId, g };
+  g.setPointerCapture?.(e.pointerId); row.classList.add('drag');
+});
+document.addEventListener('pointermove', e => {
+  if (!FD || e.pointerId !== FD.id) return; const { row } = FD, ok = n => n && n.classList.contains('ph') && n.dataset.fi != null;
+  row.style.transform = ''; let nat = row.getBoundingClientRect(); const cy = e.clientY - FD.off + nat.height / 2;
+  for (let n; ok(n = row.nextElementSibling); ) { const r = n.getBoundingClientRect(); if (cy <= r.top + r.height / 2) break; row.parentNode.insertBefore(n, row); }
+  for (let n; ok(n = row.previousElementSibling); ) { const r = n.getBoundingClientRect(); if (cy >= r.top + r.height / 2) break; row.parentNode.insertBefore(row, n); }
+  nat = row.getBoundingClientRect(); row.style.transform = `translateY(${e.clientY - FD.off - nat.top}px)`;
+});
+for (const ev of ['pointerup', 'pointercancel']) document.addEventListener(ev, e => {
+  if (!FD || e.pointerId !== FD.id) return; const { row } = FD; FD = null;
+  const ord = [...row.parentNode.querySelectorAll('.ph[data-fi]')].map(r => Number(r.dataset.fi));
+  row.classList.remove('drag'); row.style.transform = ''; SOPPRIMI = Date.now();
+  if (ev === 'pointerup' && ord.some((v, i) => v !== i)) faseRiordina(ord); render();
+});
 async function caricaAmbienti() {
   CFG.gruppi = await api('/api/ambienti');
   if (FILTRO !== 'tutti' && !grp(FILTRO)) FILTRO = 'tutti';
@@ -474,22 +503,25 @@ function vWiz() {
     <div class="lb">Unità incluse · ${w.unita.length} di ${CFG.unita.length}</div><div class="note" style="margin-top:0">Le unità non incluse non vengono toccate dallo scenario.</div>`;
   } else if (w.step === 3) {
     let t = minuti(w.fasi[0].inizio), seg = '';
+    const mov = w.fasi.filter(f => f.tipo !== 'off').length > 1;
     w.fasi.forEach((f, i) => {
       if (f.tipo === 'off') return;
       const a = t; let z = minuti(f.fino); while (z <= t) z += 1440; t = z;
       const pezzi = z > 1440 ? [[a, 1440], [0, z - 1440]] : [[a, z]];
-      seg += pezzi.map(([x, y]) => `<i style="left:${x / 14.4}%;width:${(y - x) / 14.4}%">${i + 1}</i>`).join('');
+      const col = i % 2 ? 'color-mix(in srgb,var(--c) 65%,#000)' : 'var(--c)', et = f.target == null ? '' : (Number.isInteger(f.target) ? f.target : fmt(f.target)) + '°';
+      seg += pezzi.map(([x, y]) => `<i style="left:${x / 14.4}%;width:${(y - x) / 14.4}%;background:${col}">${(y - x) / 14.4 >= 6 ? et : ''}</i>`).join('');
     });
-    const spegni = (f, i) => `<div class="ph" style="--c:${c}"><span class="nn">${I(IC.power).replace('<svg', '<svg style="width:15px;height:15px"')}</span><div class="pb"><b>Spegni impianto</b><span>alle ${wzInizio(w, i)}</span></div><button class="ed" data-a="wzed" data-i="${i}">${I(IC.edit)}</button></div>`;
+    const grip = (i, on) => `<span class="gr"${on ? ` data-i="${i}"` : ' style="opacity:0"'}>${I(IC.grip)}</span>`;
+    const spegni = (f, i) => `<div class="ph" style="--c:${c}">${mov ? grip(i, false) : ''}<span class="nn off">${I(IC.power).replace('<svg', '<svg style="width:15px;height:15px"')}</span><div class="pb"><b>Spegni impianto</b><span>alle ${wzInizio(w, i)}</span></div><button class="ed" data-a="wzed" data-i="${i}">${I(IC.edit)}</button></div>`;
     b = `<div class="note" style="margin:0 4px 12px">${GG_ORD.filter(g => w.giorni.includes(g)).map(g => GG[g]).join(' · ')}. La prima fase parte all’ora che scegli; ogni altra parte quando finisce la precedente.</div>
-    <div class="panel" style="--c:${c}"><div class="t"><b>Giornata</b><span>${MODI[w.modo]} · 00 – 24</span></div><div class="day">${seg}</div><div class="day-h"><span>00</span><span>06</span><span>12</span><span>18</span><span>24</span></div></div>
+    <div class="panel" style="--c:${c};padding:12px 14px"><div class="day">${seg}</div><div class="day-h"><span>00</span><span>06</span><span>12</span><span>18</span><span>24</span></div></div>
     <div class="lb">Fasi</div>
-    ${w.fasi.map((f, i) => f.tipo === 'off' ? spegni(f, i) : `<div class="ph" style="--c:${c}"><span class="nn">${i + 1}</span><div class="pb"><b>${esc(f.nome)}</b><span>${wzInizio(w, i)} – ${f.fino}${minuti(f.fino) <= minuti(wzInizio(w, i)) ? ' (giorno dopo)' : ''}</span><div class="chs"><span class="chp c">${etichettaFase(w.modo, f)}</span>${mantChip(f)}${f.oscillazione ? '<span class="chp">Su–giù</span>' : ''}</div></div><button class="ed" data-a="wzed" data-i="${i}">${I(IC.edit)}</button></div>`).join('')}
+    ${w.fasi.map((f, i) => f.tipo === 'off' ? spegni(f, i) : `<div class="ph" style="--c:${c}" data-fi="${i}">${mov ? grip(i, true) : ''}<span class="nn">${i + 1}</span><div class="pb"><b>${esc(f.nome)}</b><span>${wzInizio(w, i)} → ${f.fino}${minuti(f.fino) <= minuti(wzInizio(w, i)) ? ' · giorno dopo' : ''}</span><div class="chs"><span class="chp c">${etichettaFase(w.modo, f)}</span>${mantChip(f)}${f.oscillazione ? '<span class="chp">Su–giù</span>' : ''}</div></div><button class="ed" data-a="wzed" data-i="${i}">${I(IC.edit)}</button></div>`).join('')}
     <button class="add" style="--c:${c}" data-a="wzadd">${I(IC.plus)}Aggiungi fase</button>
     <div class="note">Le fasi possono attraversare la mezzanotte (es. dalle 20:00 alle 06:00). Per spegnere l'impianto aggiungi la fase «Spento».</div>`;
   } else {
     const gg = GG_ORD.filter(g => w.giorni.includes(g)).map(g => GG[g]).join(' · ') || 'nessun giorno';
-    b = `<div class="panel" style="--c:${c}"><div class="t"><b>${esc(w.nome || 'Senza nome')}</b><span>${MODI[w.modo]}</span></div><div class="cap" style="margin:0">${gg} · dalle ${w.fasi[0].inizio}</div>
+    b = `<div class="panel" style="--c:${c}"><div class="sc2" style="--c:${c};border:0;padding:0;margin:0;cursor:default"><div class="ico">${I(IC[w.modo])}</div><div><b style="font-size:19px">${esc(w.nome || 'Senza nome')}</b><span>${MODI_LUNGO[w.modo]} · ${gg} · dalle ${w.fasi[0].inizio}</span></div><button class="ed" data-a="wzstep" data-s="1" aria-label="Modifica">${I(IC.edit)}</button></div>
     <div class="lb" style="margin:16px 0 6px">Impianti</div><div style="font-size:14px;font-weight:600">${esc(nomeGruppoDi(w.unita))} · ${w.unita.length} unità</div>
     <div class="lb" style="margin:14px 0 6px">Fasi</div>
     <div class="tl" style="margin-top:6px">${w.fasi.map((f, i) => f.tipo === 'off' ? `<div class="tp"><span class="dt">${I(IC.power).replace('<svg', '<svg style="width:14px;height:14px"')}</span><b>${wzInizio(w, i)}</b><span class="s">Spegni impianto</span></div>` : `<div class="tp"><span class="dt">${i + 1}</span><b>${wzInizio(w, i)} → ${f.fino}</b><span class="s">${etichettaFase(w.modo, f)}${f.mant ? ` · arriva a ${fmt(f.mant.target)}° → mantenimento ${fmt(f.mant.temp)}° fino a ${fmt(f.mant.ritorno)}°` : ''}${f.oscillazione ? ' · su–giù' : ''}</span></div>`).join('')}</div></div>
@@ -502,7 +534,7 @@ function vWiz() {
 }
 // Mantieni temperatura: tre soglie per fase. Riscaldamento: ritorno < target del mantenimento; raffrescamento: specchiato.
 const mantChips = (f) => f.mant && f.mant.target != null ? `<span class="chp">${I(IC.bolt)}Arriva a ${fmt(f.mant.target)}°</span><span class="chp">${I(IC.loop)}Mant. ${fmt(f.mant.temp)}° → ${fmt(f.mant.ritorno)}°</span>` : '';
-const mantChip = (f) => f.mant && f.mant.target != null ? `<span class="chp">Mant. ${fmt(f.mant.temp)}°</span>` : '';
+const mantChip = (f) => f.mant && f.mant.target != null ? `<span class="chp">${I(IC.bolt)}Arriva a ${fmt(f.mant.target)}°</span><span class="chp">${I(IC.loop)}Mant. ${fmt(f.mant.temp)}°</span>` : '';
 const mantIniziale = (t, risc) => ({ target: clamp(t + (risc ? .5 : -.5)), temp: clamp(t + (risc ? -2 : 2)), ritorno: clamp(t + (risc ? -1.5 : 1.5)) });
 function mantErrore(p, risc) {                    // stesse regole del server (logic.valida)
   const m = p.mant, oltre = (x, y) => risc ? x > y : x < y, sotto = risc ? 'sotto' : 'sopra';
@@ -539,31 +571,31 @@ function mantPannello(p, risc, c) {      // grafico e passi usano i colori gener
 function vFase() {
   const w = S.wz, p = S.ph, i = SUB.i, c = `var(--c${w.modo})`, nuova = SUB.nuova, risc = w.modo === 5, off = p.tipo === 'off';
   const nTemp = w.fasi.filter(f => f.tipo !== 'off').length, nome = MODI[w.modo], t = fmt(p.target);
-  const base = `<div class="panel" style="--c:${c};display:flex;align-items:center;gap:10px"><div class="chp c" style="--c:${c}">${I(IC[w.modo])}${nome}</div><span class="cap" style="margin:0">Modalità dello scenario · le altre fasi si scelgono qui sotto</span></div>
+  const base = `<div class="panel" style="--c:${c};display:flex;align-items:center;gap:10px"><div class="chp c" style="--c:${c}">${I(IC[w.modo])}${nome}</div><span class="cap" style="margin:0">Modalità dello scenario</span></div>
   <div class="lb">Cosa fa l'impianto</div>${tipiFase(w, i, p.tipo)}`;
-  if (off) return `${wh(nuova ? 'Nuova fase' : 'Modifica fase', `Fase ${i + 1} · spegnimento`)}${base}
+  if (off) return `${wh(`Fase ${i + 1} · Spegnimento`, 'Spegne le unità dello scenario', '<button class="an" data-a="back">Annulla</button>')}${base}
   <div class="panel"><div class="t"><b>Spegni impianto</b></div><div class="cap" style="margin:0">Le unità dello scenario si spengono quando finisce la fase precedente. Lo scenario resta in attesa del prossimo avvio.</div></div>
   <div class="fld"><small>Dalle</small><b style="font-size:18px">${wzInizio(w, i)}</b></div><div class="note" style="margin-top:0">Orario di fine dell'ultima fase · non modificabile</div>
   ${!nuova ? `<button class="cta bad" data-a="phdel">Elimina fase</button>` : ''}<div style="height:90px"></div>
-  <div class="foot"><button class="cta g" data-a="back">Annulla</button><button class="cta" style="--c:${c}" data-a="phsalva">Salva fase</button></div>`;
+  <div class="foot"><button class="cta" style="--c:${c}" data-a="phsalva">Salva fase</button></div>`;
   const nt = NO_T[p.tipo];
-  if (nt) return `${wh(nuova ? 'Nuova fase' : 'Modifica fase', `Fase ${i + 1} · ${nt}`)}${base}
+  if (nt) return `${wh(`Fase ${i + 1} · ${MODI[p.tipo === 'vent' ? 3 : 2]}`, `${nt.replace(/\.$/, '')} · senza temperatura`, '<button class="an" data-a="back">Annulla</button>')}${base}
   <label class="fld"><small>Nome fase</small><input data-m="ph.nome" value="${esc(p.nome)}"></label>
   <div class="panel"><div class="t"><b>${p.tipo === 'vent' ? 'Solo ventilazione' : 'Deumidificazione'}</b></div><div class="cap" style="margin:0">Per tutta la fase le unità restano accese in modalità ${nt} Non serve nessuna temperatura.</div></div>
   <div class="dtr"><label class="fld"><small>Dalle</small>${i === 0 ? `<input type="time" data-m="ph.inizio" value="${p.inizio}">` : `<b style="font-size:18px">${wzInizio(w, i)}</b>`}</label><label class="fld"><small>Fino alle</small><input type="time" data-m="ph.fino" value="${p.fino}"></label></div>
   ${p.fino && minuti(p.fino) <= minuti(i > 0 ? wzInizio(w, i) : p.inizio) ? '<div class="note" style="margin-top:0">La fase finisce il giorno dopo. Può attraversare la mezzanotte.</div>' : ''}
   ${nTemp > 1 && !nuova ? `<button class="cta bad" data-a="phdel">Elimina fase</button>` : ''}<div style="height:90px"></div>
-  <div class="foot"><button class="cta g" data-a="back">Annulla</button><button class="cta" style="--c:${c}" data-a="phsalva">Salva fase</button></div>`;
-  return `${wh(nuova ? 'Nuova fase' : 'Modifica fase', `Fase ${i + 1}`)}${base}
+  <div class="foot"><button class="cta" style="--c:${c}" data-a="phsalva">Salva fase</button></div>`;
+  return `${wh(`Fase ${i + 1} · ${nuova ? 'nuova' : 'modifica'}`, `${MODI_LUNGO[w.modo]} · per ogni unità`, '<button class="an" data-a="back">Annulla</button>')}${base}
   <label class="fld"><small>Nome fase</small><input data-m="ph.nome" value="${esc(p.nome)}"></label>
   <div class="panel" style="--c:${c}"><div class="t"><b>Temperatura target</b></div>${bst(p.target, 'phtarget')}</div>
   <div class="dtr"><label class="fld"><small>Dalle</small>${i === 0 ? `<input type="time" data-m="ph.inizio" value="${p.inizio}">` : `<b style="font-size:18px">${wzInizio(w, i)}</b>`}</label><label class="fld"><small>Fino alle</small><input type="time" data-m="ph.fino" value="${p.fino}"></label></div>
   ${p.fino && minuti(p.fino) <= minuti(wzInizio(w, i) && i > 0 ? wzInizio(w, i) : p.inizio) ? '<div class="note" style="margin-top:0">La fase finisce il giorno dopo. Può attraversare la mezzanotte.</div>' : ''}
   <div class="lb">Oscillazione</div>${oscSeg(!!p.oscillazione, 'phosc')}
-  <div class="row" style="--c:${c}"><div><b>Mantieni temperatura</b><span>${p.mant ? `Quando la stanza ${risc ? 'sale' : 'scende'} al target, le unità passano al setpoint di mantenimento. Tornano al programma solo quando la stanza ${risc ? 'scende' : 'sale'} alla soglia di ritorno.` : 'Quando la stanza raggiunge il target, tieni un setpoint di mantenimento per risparmiare'}</span></div><button class="sw ${p.mant ? 'on' : ''}" data-a="phmant"></button></div>
+  <div class="lb">Opzionale</div><div class="row" style="--c:${c}"><div><b>Mantieni temperatura</b><span>${p.mant ? `Quando la stanza ${risc ? 'sale' : 'scende'} al target, le unità passano al setpoint di mantenimento. Tornano al programma solo quando la stanza ${risc ? 'scende' : 'sale'} alla soglia di ritorno.` : 'Quando la stanza raggiunge il target, tieni un setpoint di mantenimento per risparmiare'}</span></div><button class="sw ${p.mant ? 'on' : ''}" data-a="phmant"></button></div>
   ${p.mant ? mantPannello(p, risc, c) : ''}
   ${nTemp > 1 && !nuova ? `<button class="cta bad" data-a="phdel">Elimina fase</button>` : ''}<div style="height:90px"></div>
-  <div class="foot"><button class="cta g" data-a="back">Annulla</button><button class="cta" style="--c:${c}" data-a="phsalva">Salva fase</button></div>`;
+  <div class="foot"><button class="cta" style="--c:${c}" data-a="phsalva">Salva fase</button></div>`;
 }
 function wzBody() {
   const w = S.wz, f = w.fasi.map((p, i) => {
@@ -738,6 +770,7 @@ const ACT = {
   wzgr(d) { const w = S.wz, ids = grp(d.id).unita, tutte = ids.every(x => w.unita.includes(x)); w.unita = tutte ? w.unita.filter(x => !ids.includes(x)) : [...new Set([...w.unita, ...ids])]; render(); },
   wzall() { const w = S.wz; w.unita = w.unita.length === CFG.unita.length ? [] : CFG.unita.map(u => u.id); render(); },
   wzun(d) { const w = S.wz, i = w.unita.indexOf(d.id); if (i >= 0) w.unita.splice(i, 1); else w.unita.push(d.id); render(); },
+  wzstep(d) { S.wz.step = Number(d.s); scrollTo(0, 0); render(); },
   wzprev() { S.wz.step--; scrollTo(0, 0); render(); },
   wznext() {
     const w = S.wz; if (w.step === 1 && !w.nome.trim()) return toast('Dai un nome allo scenario', 'warn'); if (w.step === 1 && !w.giorni.length) return toast('Scegli almeno un giorno', 'warn');

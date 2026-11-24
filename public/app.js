@@ -25,7 +25,7 @@ const IC = {
   bolt: '<path d="M13 3L5 14h6l-1 7 8-11h-6z"/>', loop: '<path d="M17 2l4 4-4 4"/><path d="M3 11V9a3 3 0 013-3h15"/><path d="M7 22l-4-4 4-4"/><path d="M21 13v2a3 3 0 01-3 3H3"/>',
   power: '<path d="M12 3v9M6.3 6.8a8 8 0 1 0 11.4 0"/>', refresh: '<path d="M20 11a8 8 0 1 0-2.3 5.7M20 4v7h-7"/>',
   back: '<path d="M15 5l-7 7 7 7"/>', plus: '<path d="M12 5v14M5 12h14"/>', minus: '<path d="M5 12h14"/>', check: '<path d="M5 12.5l4.5 4.5L19 7.5"/>',
-  grip: '<path d="M9 7h.01M15 7h.01M9 12h.01M15 12h.01M9 17h.01M15 17h.01" stroke-width="3.2"/>', edit: '<path d="M4 20h4L19 9l-4-4L4 16z"/>', copy: '<rect x="8" y="8" width="12" height="12" rx="2.5"/><path d="M16 8V6.5A2.5 2.5 0 0013.5 4h-7A2.5 2.5 0 004 6.5v7A2.5 2.5 0 006.5 16H8"/>', stop: '<circle cx="12" cy="12" r="9.5" stroke-width="2.6"/><rect x="8.3" y="8.3" width="7.4" height="7.4" rx="2" fill="currentColor" stroke="none"/>', play: '<path d="M7 4l13 8-13 8z"/>',
+  grip: '<path d="M9 7h.01M15 7h.01M9 12h.01M15 12h.01M9 17h.01M15 17h.01" stroke-width="3.2"/>', edit: '<path d="M4 20h4L19 9l-4-4L4 16z"/>', trash: '<path d="M4 7h16M10 11v6M14 11v6M6 7l1 12a2 2 0 002 2h6a2 2 0 002-2l1-12M9 7V4h6v3"/>', copy: '<rect x="8" y="8" width="12" height="12" rx="2.5"/><path d="M16 8V6.5A2.5 2.5 0 0013.5 4h-7A2.5 2.5 0 004 6.5v7A2.5 2.5 0 006.5 16H8"/>', stop: '<circle cx="12" cy="12" r="9.5" stroke-width="2.6"/><rect x="8.3" y="8.3" width="7.4" height="7.4" rx="2" fill="currentColor" stroke="none"/>', play: '<path d="M7 4l13 8-13 8z"/>',
   eye: '<path d="M2 12s4-7 10-7 10 7 10 7-4 7-10 7S2 12 2 12z"/><circle cx="12" cy="12" r="3"/>', pen: '<path d="M4 20l1-4L16 5l3 3L8 19z"/>',
   warn: '<path d="M12 3l10 18H2z"/><path d="M12 10v5M12 18v.5"/>', right: '<path d="M9 5l7 7-7 7"/>', left: '<path d="M15 5l-7 7 7 7"/>',
   osc: '<path d="M7 5l-4 4 4 4M17 11l4 4-4 4M3 9h13M21 15H8"/>', fermo: '<path d="M5 12h14"/>',
@@ -512,11 +512,12 @@ function vWiz() {
       seg += pezzi.map(([x, y]) => `<i style="left:${x / 14.4}%;width:${(y - x) / 14.4}%;background:${col}">${(y - x) / 14.4 >= 6 ? et : ''}</i>`).join('');
     });
     const grip = (i, on) => `<span class="gr"${on ? ` data-i="${i}"` : ' style="opacity:0"'}>${I(IC.grip)}</span>`;
-    const spegni = (f, i) => `<div class="ph" style="--c:${c}">${mov ? grip(i, false) : ''}<span class="nn off">${I(IC.power).replace('<svg', '<svg style="width:15px;height:15px"')}</span><div class="pb"><b>Spegni impianto</b><span>alle ${wzInizio(w, i)}</span></div><button class="ed" data-a="wzed" data-i="${i}">${I(IC.edit)}</button></div>`;
+    const del = (i, on) => on ? `<button class="ed del" data-a="wzdel" data-i="${i}" aria-label="Elimina fase">${I(IC.trash)}</button>` : '';
+    const spegni = (f, i) => `<div class="ph" style="--c:${c}">${mov ? grip(i, false) : ''}<span class="nn off">${I(IC.power).replace('<svg', '<svg style="width:15px;height:15px"')}</span><div class="pb"><b>Spegni impianto</b><span>alle ${wzInizio(w, i)}</span></div><button class="ed" data-a="wzed" data-i="${i}" aria-label="Modifica">${I(IC.edit)}</button>${del(i, true)}</div>`;
     b = `<div class="note" style="margin:0 4px 12px">${GG_ORD.filter(g => w.giorni.includes(g)).map(g => GG[g]).join(' · ')}. La prima fase parte all’ora che scegli; ogni altra parte quando finisce la precedente.</div>
     <div class="panel" style="--c:${c};padding:12px 14px"><div class="day">${seg}</div><div class="day-h"><span>00</span><span>06</span><span>12</span><span>18</span><span>24</span></div></div>
     <div class="lb">Fasi</div>
-    ${w.fasi.map((f, i) => f.tipo === 'off' ? spegni(f, i) : `<div class="ph" style="--c:${c}" data-fi="${i}">${mov ? grip(i, true) : ''}<span class="nn">${i + 1}</span><div class="pb"><b>${esc(f.nome)}</b><span>${wzInizio(w, i)} → ${f.fino}${minuti(f.fino) <= minuti(wzInizio(w, i)) ? ' · giorno dopo' : ''}</span><div class="chs"><span class="chp c">${etichettaFase(w.modo, f)}</span>${mantChip(f)}${f.oscillazione ? '<span class="chp">Su–giù</span>' : ''}</div></div><button class="ed" data-a="wzed" data-i="${i}">${I(IC.edit)}</button></div>`).join('')}
+    ${w.fasi.map((f, i) => f.tipo === 'off' ? spegni(f, i) : `<div class="ph" style="--c:${c}" data-fi="${i}">${mov ? grip(i, true) : ''}<span class="nn">${i + 1}</span><div class="pb"><b>${esc(f.nome)}</b><span>${wzInizio(w, i)} → ${f.fino}${minuti(f.fino) <= minuti(wzInizio(w, i)) ? ' · giorno dopo' : ''}</span><div class="chs"><span class="chp c">${etichettaFase(w.modo, f)}</span>${mantChip(f)}${f.oscillazione ? '<span class="chp">Su–giù</span>' : ''}</div></div><button class="ed" data-a="wzed" data-i="${i}" aria-label="Modifica">${I(IC.edit)}</button>${del(i, mov)}</div>`).join('')}
     <button class="add" style="--c:${c}" data-a="wzadd">${I(IC.plus)}Aggiungi fase</button>
     <div class="note">Le fasi possono attraversare la mezzanotte (es. dalle 20:00 alle 06:00). Per spegnere l'impianto aggiungi la fase «Spento».</div>`;
   } else {
@@ -531,6 +532,14 @@ function vWiz() {
     : `<button class="cta g back" data-a="wzprev" aria-label="Indietro">${I(IC.back)}</button><button class="cta t" style="--c:${c}" data-a="wzsalva">Salva</button><button class="cta" style="--c:${c}" data-a="wzsalva" data-avvia="1">Salva e avvia</button>`;
   return `${wh(w.step === 1 ? (w.id ? 'Modifica scenario' : w.dup ? 'Duplica scenario' : 'Nuovo scenario') : titoli[w.step - 1], `Passo ${w.step} di 4`, '<button class="an" data-a="back">Annulla</button>')}
   <div class="stp" style="--c:${c}">${[1, 2, 3, 4].map(i => `<i class="${i <= w.step ? 'on' : ''}"></i>`).join('')}</div>${b}<div style="height:90px"></div><div class="foot">${foot}</div>`;
+}
+function eliminaFase(i, nomeFase) {
+  const f = S.wz.fasi[i], nome = f.tipo === 'off' ? 'Spegni impianto' : (nomeFase || `Fase ${i + 1}`);
+  conferma(`La fase "${nome}" viene tolta dallo scenario. Lo scenario si salva solo quando premi Salva.`, () => {
+    const w = S.wz, prima = w.fasi[0]; w.fasi.splice(i, 1);
+    if (w.fasi[0] && !w.fasi[0].inizio) w.fasi[0].inizio = i === 0 && prima.inizio ? prima.inizio : '08:00';
+    SUB = { k: 'wiz' }; render();
+  }, { titolo: 'Eliminare la fase?', ok: 'Elimina', pericolo: true });
 }
 // Mantieni temperatura: tre soglie per fase. Riscaldamento: ritorno < target del mantenimento; raffrescamento: specchiato.
 const mantChips = (f) => f.mant && f.mant.target != null ? `<span class="chp">${I(IC.bolt)}Arriva a ${fmt(f.mant.target)}°</span><span class="chp">${I(IC.loop)}Mant. ${fmt(f.mant.temp)}° → ${fmt(f.mant.ritorno)}°</span>` : '';
@@ -788,14 +797,8 @@ const ACT = {
   mttarget(d) { S.ph.mant.target = clamp(S.ph.mant.target + Number(d.d)); render(); },
   mttemp(d) { S.ph.mant.temp = clamp(S.ph.mant.temp + Number(d.d)); render(); },
   mtritorno(d) { S.ph.mant.ritorno = clamp(S.ph.mant.ritorno + Number(d.d)); render(); },
-  phdel() {
-    const i = SUB.i, f = S.wz.fasi[i], nome = f.tipo === 'off' ? 'Spegni impianto' : (S.ph.nome || `Fase ${i + 1}`);
-    conferma(`La fase "${nome}" viene tolta dallo scenario. Lo scenario si salva solo quando premi Salva.`, () => {
-      const w = S.wz, prima = w.fasi[0]; w.fasi.splice(i, 1);
-      if (w.fasi[0] && !w.fasi[0].inizio) w.fasi[0].inizio = i === 0 && prima.inizio ? prima.inizio : '08:00';
-      SUB = { k: 'wiz' }; render();
-    }, { titolo: 'Eliminare la fase?', ok: 'Elimina', pericolo: true });
-  },
+  phdel() { eliminaFase(SUB.i, S.ph.nome); },
+  wzdel(d) { eliminaFase(Number(d.i), S.wz.fasi[Number(d.i)].nome); },
   phsalva() {
     const w = S.wz, p = S.ph, i = SUB.i, nuova = SUB.nuova, off = p.tipo === 'off';
     if (off) {

@@ -24,7 +24,7 @@ const IC = {
   bolt: '<path d="M13 3L5 14h6l-1 7 8-11h-6z"/>', loop: '<path d="M17 2l4 4-4 4"/><path d="M3 11V9a3 3 0 013-3h15"/><path d="M7 22l-4-4 4-4"/><path d="M21 13v2a3 3 0 01-3 3H3"/>',
   power: '<path d="M12 3v9M6.3 6.8a8 8 0 1 0 11.4 0"/>', refresh: '<path d="M20 11a8 8 0 1 0-2.3 5.7M20 4v7h-7"/>',
   back: '<path d="M15 5l-7 7 7 7"/>', plus: '<path d="M12 5v14M5 12h14"/>', minus: '<path d="M5 12h14"/>', check: '<path d="M5 12.5l4.5 4.5L19 7.5"/>',
-  edit: '<path d="M4 20h4L19 9l-4-4L4 16z"/>', stop: '<rect x="6" y="6" width="12" height="12" rx="2"/>', play: '<path d="M7 4l13 8-13 8z"/>',
+  edit: '<path d="M4 20h4L19 9l-4-4L4 16z"/>', copy: '<rect x="8" y="8" width="12" height="12" rx="2.5"/><path d="M16 8V6.5A2.5 2.5 0 0013.5 4h-7A2.5 2.5 0 004 6.5v7A2.5 2.5 0 006.5 16H8"/>', stop: '<rect x="6" y="6" width="12" height="12" rx="2"/>', play: '<path d="M7 4l13 8-13 8z"/>',
   eye: '<path d="M2 12s4-7 10-7 10 7 10 7-4 7-10 7S2 12 2 12z"/><circle cx="12" cy="12" r="3"/>', pen: '<path d="M4 20l1-4L16 5l3 3L8 19z"/>',
   warn: '<path d="M12 3l10 18H2z"/><path d="M12 10v5M12 18v.5"/>', right: '<path d="M9 5l7 7-7 7"/>', left: '<path d="M15 5l-7 7 7 7"/>',
   osc: '<path d="M7 5l-4 4 4 4M17 11l4 4-4 4M3 9h13M21 15H8"/>', fermo: '<path d="M5 12h14"/>',
@@ -375,7 +375,7 @@ function vScd() {
   ${LOGSC.length ? `<div class="lb">Cronologia</div><div class="panel" style="padding:4px 14px">${LOGSC.map(l => `<div class="lg"><time>${hm(l.ts)}</time><span class="k ${l.tipo === 'avviso' || l.tipo === 'errore' ? 'a' : ''}">${TAG_LOG[l.tipo] || 'Comando'}</span><span>${esc(l.testo)}</span></div>`).join('')}</div>` : ''}
   ${run ? `<div class="two" style="margin-top:14px">${RUN.fase < nTemp.length && !RUN.inAttesa ? `<button class="cta g${W()}" data-a="salta" data-i="${RUN.fase + 1}">${I(IC.right)}Salta alla fase ${RUN.fase + 2}</button>` : ''}<button class="cta g${W()}" data-a="modifica" data-id="${sc.id}">${I(IC.edit)}Modifica</button></div>
     <button class="cta bad${W()}" data-a="sheetStop">${I(IC.stop)}Interrompi scenario</button>`
-    : `<button class="cta${W()}" data-a="avvia" data-id="${sc.id}">Avvia ora</button><button class="cta g${W()}" data-a="modifica" data-id="${sc.id}">Modifica</button><button class="cta bad${W()}" data-a="elimina" data-id="${sc.id}">Elimina</button>`}<div style="height:20px"></div>`;
+    : `<button class="cta${W()}" data-a="avvia" data-id="${sc.id}">Avvia ora</button><div class="two"><button class="cta g${W()}" data-a="modifica" data-id="${sc.id}">${I(IC.edit)}Modifica</button><button class="cta g${W()}" data-a="duplica" data-id="${sc.id}">${I(IC.copy)}Duplica</button></div><button class="cta bad${W()}" data-a="elimina" data-id="${sc.id}">Elimina</button>`}<div style="height:20px"></div>`;
 }
 
 // ===== AMBIENTI (gruppi di unità: elenco, nuovo, modifica)
@@ -440,11 +440,14 @@ async function caricaAmbienti() {
 }
 
 // ---- creazione / modifica scenario (4 passi)
-function nuovoWz(sc) {
+// Fasi di partenza di un nuovo scenario: una fase di giorno nel tipo della modalità, poi lo spegnimento.
+const fasiBase = (m) => [{ tipo: TIPO_MODO[m] || 'temp', nome: 'Giorno', inizio: '08:00', fino: '17:00', ...(TIPO_MODO[m] ? {} : { target: m === 5 ? 20 : 24, oscillazione: false }) }, { tipo: 'off' }];
+// sc + duplica: copia di uno scenario esistente, non salvata finché non si preme Salva.
+function nuovoWz(sc, duplica = false) {
   const tutte = CFG.unita.map(u => u.id);
-  S.wz = sc ? { id: sc.id, nome: sc.nome, modo: sc.modo, giorni: [...sc.giorni], unita: [...sc.unita], um: sc.unita.length === tutte.length ? 'tutto' : 'singole',
-      fasi: JSON.parse(JSON.stringify(sc.fasi)), step: 1, avvia: false }
-    : { id: null, nome: '', modo: 5, giorni: [5, 6, 0], unita: tutte, um: 'tutto', fasi: [{ tipo: 'temp', nome: 'Giorno', inizio: '08:00', fino: '17:00', target: 20, oscillazione: false }, { tipo: 'off' }], step: 1, avvia: false };
+  S.wz = sc ? { id: duplica ? null : sc.id, dup: duplica, da: sc.nome, nome: duplica ? `${sc.nome} copia` : sc.nome, modo: sc.modo, giorni: [...sc.giorni], unita: [...sc.unita], um: sc.unita.length === tutte.length ? 'tutto' : 'singole',
+      fasi: JSON.parse(JSON.stringify(sc.fasi)), step: 1 }
+    : { id: null, nome: '', modo: 5, giorni: [5, 6, 0], unita: tutte, um: 'tutto', fasi: fasiBase(5), step: 1 };
   SUB = { k: 'wiz' }; scrollTo(0, 0);
 }
 const wzInizio = (w, i) => i === 0 ? w.fasi[0].inizio : w.fasi[i - 1].fino;
@@ -462,7 +465,7 @@ function vWiz() {
     b = `<label class="fld"><small>Nome</small><input data-m="wz.nome" value="${esc(w.nome)}" placeholder="Es. Weekend freddo"></label>
     <div class="lb">Modalità</div><div class="mg">${[1, 5, 3, 2].map(m => `<button class="mc m${m} ${w.modo === m ? 'on' : ''}" data-a="wzmodo" data-v="${m}">${I(IC[m])}${MODI[m]}</button>`).join('')}</div>
     <div class="lb">Giorni</div><div class="days" style="--c:${c}">${GG_ORD.map(g => `<div class="${w.giorni.includes(g) ? 'on' : ''}" data-a="wzgg" data-v="${g}">${GG_L[g]}</div>`).join('')}</div>
-    <div class="note">I giorni valgono per tutte le fasi; l’ora di inizio si sceglie nella prima fase. Con Risc. o Raff. ogni fase può essere a temperatura, solo Vent., solo Deum. oppure Spento. Con Vent. o Deum. lo scenario fa solo quello, negli orari delle fasi.</div>`;
+    <div class="note">${w.dup ? `Parti da “${esc(w.da)}”: fasi e impianti restano uguali, puoi cambiare nome e giorni. Se cambi la modalità le fasi vengono azzerate. Lo scenario non viene creato finché non tocchi Salva nell’ultimo passo.` : 'I giorni valgono per tutte le fasi; l’ora di inizio si sceglie nella prima fase. Con Risc. o Raff. ogni fase può essere a temperatura, solo Vent., solo Deum. oppure Spento. Con Vent. o Deum. lo scenario fa solo quello, negli orari delle fasi.'}</div>`;
   } else if (w.step === 2) {
     b = `${seg([['tutto', 'Tutto'], ['ambiente', 'Per ambiente'], ['singole', 'Singole']], w.um, 'wzum')}
     ${w.um === 'ambiente' ? `<div class="lgd">${gruppiVisibili().map(g => { const on = g.unita.every(x => w.unita.includes(x)); return `<button class="${on ? 'on' : ''}" style="--c:var(--warm)" data-a="wzgr" data-id="${g.id}"><i></i>${esc(g.nome)}</button>`; }).join('')}</div>` : ''}
@@ -490,12 +493,11 @@ function vWiz() {
     <div class="lb" style="margin:16px 0 6px">Impianti</div><div style="font-size:14px;font-weight:600">${esc(nomeGruppoDi(w.unita))} · ${w.unita.length} unità</div>
     <div class="lb" style="margin:14px 0 6px">Fasi</div>
     <div class="tl" style="margin-top:6px">${w.fasi.map((f, i) => f.tipo === 'off' ? `<div class="tp"><span class="dt">${I(IC.power).replace('<svg', '<svg style="width:14px;height:14px"')}</span><b>${wzInizio(w, i)}</b><span class="s">Spegni impianto</span></div>` : `<div class="tp"><span class="dt">${i + 1}</span><b>${wzInizio(w, i)} → ${f.fino}</b><span class="s">${etichettaFase(w.modo, f)}${f.mant ? ` · arriva a ${fmt(f.mant.target)}° → mantenimento ${fmt(f.mant.temp)}° fino a ${fmt(f.mant.ritorno)}°` : ''}${f.oscillazione ? ' · su–giù' : ''}</span></div>`).join('')}</div></div>
-    <div class="row"><div><b>Avvia subito</b><span>Parte ora${RUN.attivo ? ` e sostituisce ${esc(RUN.nome)}` : ''}</span></div><button class="sw ${w.avvia ? 'on' : ''}" data-a="wzavvia"></button></div>
     ${CFG.scrittura ? '' : '<div class="note">Con la scrittura disattivata lo scenario si salva ma non invia comandi: per farlo partire attiva prima la scrittura.</div>'}`;
   }
   const foot = w.step < 4 ? `${w.step > 1 ? '<button class="cta g" data-a="wzprev">Indietro</button>' : ''}<button class="cta" style="--c:${c}" data-a="wznext">Avanti${w.step === 2 ? ` · ${w.unita.length} unità` : ''}</button>`
-    : `<button class="cta g" data-a="wzprev">Indietro</button><button class="cta g" data-a="wzsalva">Salva</button><button class="cta" style="--c:${c}" data-a="wzsalva" data-avvia="1">Salva e avvia</button>`;
-  return `${wh(w.step === 1 ? (w.id ? 'Modifica scenario' : 'Nuovo scenario') : titoli[w.step - 1], `Passo ${w.step} di 4`, '<button class="an" data-a="back">Annulla</button>')}
+    : `<button class="cta g back" data-a="wzprev" aria-label="Indietro">${I(IC.back)}</button><button class="cta t" style="--c:${c}" data-a="wzsalva">Salva</button><button class="cta" style="--c:${c}" data-a="wzsalva" data-avvia="1">Salva e avvia</button>`;
+  return `${wh(w.step === 1 ? (w.id ? 'Modifica scenario' : w.dup ? 'Duplica scenario' : 'Nuovo scenario') : titoli[w.step - 1], `Passo ${w.step} di 4`, '<button class="an" data-a="back">Annulla</button>')}
   <div class="stp" style="--c:${c}">${[1, 2, 3, 4].map(i => `<i class="${i <= w.step ? 'on' : ''}"></i>`).join('')}</div>${b}<div style="height:90px"></div><div class="foot">${foot}</div>`;
 }
 // Mantieni temperatura: tre soglie per fase. Riscaldamento: ritorno < target del mantenimento; raffrescamento: specchiato.
@@ -696,6 +698,7 @@ const ACT = {
   scd(d) { SUB = { k: 'scd', id: Number(d.id) }; scrollTo(0, 0); LOGSC = []; logScenario(SC.find(s => s.id === Number(d.id))?.nome || ''); render(); },
   nuovo() { nuovoWz(null); render(); },
   modifica(d) { nuovoWz(SC.find(s => s.id === Number(d.id))); render(); },
+  duplica(d) { nuovoWz(SC.find(s => s.id === Number(d.id)), true); render(); },
   elimina(d) { conferma('Lo scenario viene eliminato definitivamente.', async () => { try { await api('/api/scenari/' + d.id, 'DELETE'); SC = await api('/api/scenari'); SUB = null; render(); } catch (e) { toast(e.message, 'err'); } }, { titolo: 'Eliminare lo scenario?', ok: 'Elimina', pericolo: true }); },
   avvia(d) {
     const sc = SC.find(s => s.id === Number(d.id));
@@ -718,7 +721,12 @@ const ACT = {
     conferma(`L'ambiente "${a.nome}" viene eliminato. Le unità non vengono toccate.`, async () => { try { await api('/api/ambienti/' + a.id, 'DELETE'); await caricaAmbienti(); SUB = null; toast('Ambiente eliminato'); render(); } catch (e) { toast(e.message, 'err'); } }, { titolo: 'Eliminare l\'ambiente?', ok: 'Elimina' });
   },
   // wizard
-  wzmodo(d) {                                   // verso uno scenario Vent./Deum. le fasi a temperatura diventano di quel tipo; all'indietro tornano a temperatura
+  wzmodo(d) {
+    if (S.wz.dup) {                             // in una copia, cambiare modalità azzera le fasi
+      const m = Number(d.v); if (m === S.wz.modo) return;
+      S.wz.modo = m; S.wz.fasi = fasiBase(m); toast('Fasi azzerate: ricreale nel passo 3', 'warn'); return render();
+    }
+    // verso uno scenario Vent./Deum. le fasi a temperatura diventano di quel tipo; all'indietro tornano a temperatura
     const w = S.wz, prima = TIPO_MODO[w.modo], ora = TIPO_MODO[Number(d.v)]; w.modo = Number(d.v);
     if (ora) w.fasi.forEach(f => { if (f.tipo === 'temp') f.tipo = ora; });
     else if (prima) w.fasi.forEach(f => { if (f.tipo !== 'off') Object.assign(f, { tipo: 'temp', target: w.modo === 5 ? 20 : 24, mant: null, oscillazione: false }); });
@@ -730,7 +738,6 @@ const ACT = {
   wzgr(d) { const w = S.wz, ids = grp(d.id).unita, tutte = ids.every(x => w.unita.includes(x)); w.unita = tutte ? w.unita.filter(x => !ids.includes(x)) : [...new Set([...w.unita, ...ids])]; render(); },
   wzall() { const w = S.wz; w.unita = w.unita.length === CFG.unita.length ? [] : CFG.unita.map(u => u.id); render(); },
   wzun(d) { const w = S.wz, i = w.unita.indexOf(d.id); if (i >= 0) w.unita.splice(i, 1); else w.unita.push(d.id); render(); },
-  wzavvia() { S.wz.avvia = !S.wz.avvia; render(); },
   wzprev() { S.wz.step--; scrollTo(0, 0); render(); },
   wznext() {
     const w = S.wz; if (w.step === 1 && !w.nome.trim()) return toast('Dai un nome allo scenario', 'warn'); if (w.step === 1 && !w.giorni.length) return toast('Scegli almeno un giorno', 'warn');
@@ -767,7 +774,7 @@ const ACT = {
   async wzsalva(d, el) {
     try {
       const w = S.wz, body = wzBody(), r = w.id ? await api('/api/scenari/' + w.id, 'PUT', body) : await api('/api/scenari', 'POST', body), id = w.id || r.id;
-      if (w.avvia || el.dataset.avvia) { if (RUN.attivo) await api('/api/run/stop', 'POST', { spegni: false }); await api('/api/run/start', 'POST', { id }); }
+      if (el.dataset.avvia) { if (RUN.attivo) await api('/api/run/stop', 'POST', { spegni: false }); await api('/api/run/start', 'POST', { id }); }
       SC = await api('/api/scenari'); SUB = null; toast('Scenario salvato'); aggiorna();
     } catch (e) { toast(e.message, 'err'); }
   },

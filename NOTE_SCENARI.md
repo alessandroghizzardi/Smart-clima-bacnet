@@ -1,7 +1,7 @@
 # Note per il codice · Scenari (da rivedere)
 
 ## Motore scenari (server)
-Un solo scenario attivo alla volta: avviarne un altro interrompe quello in corso (con conferma). Quando c'è uno scenario attivo il server esegue un ciclo di controllo ogni 5 minuti: legge le unità via BACnet, confronta con la fase corrente e scrive solo ciò che serve. Ogni lettura finisce nel registro. In sola lettura gli scenari sono solo consultabili e il motore resta in pausa; l'avvio automatico a orario (orologio del server) avviene solo a scrittura attiva.
+Uno scenario parte **solo quando lo si avvia** ("Avvia ora" o ▶ nella lista; gli scenari salvati non partono da soli). Da lì resta attivo e si ripete nei suoi giorni finché non lo si interrompe. "Avvia ora" fuori dai giorni o prima dell'ora di inizio parte subito dalla prima fase. Un solo scenario attivo alla volta: avviarne un altro apre il pannello "Cambiare scenario?", che con un tocco interrompe quello in corso, spegne le sue unità che il nuovo non usa (le altre passano subito al nuovo) e avvia il nuovo. Quando c'è uno scenario attivo il server esegue un ciclo di controllo ogni 5 minuti: legge le unità via BACnet, confronta con la fase corrente e scrive solo ciò che serve. Ogni lettura finisce nel registro. In sola lettura gli scenari sono solo consultabili e il motore resta in pausa; anche la ripartenza nei giorni previsti (orologio del server) avviene solo a scrittura attiva.
 
 ## Fasi a orario
 Ogni fase ha: nome, temperatura target, 'fino a' (ora) e, a scelta, oscillazione lamelle; la modalità dello scenario è Raff., Risc., Vent. o Deum.; ogni fase può inoltre essere solo Vent. o solo Deum. (nome e orari, nessuna temperatura: le unità si accendono in quella modalità) oppure Spento.
@@ -17,6 +17,9 @@ Un solo flag nell'editor della fase, con tre soglie. Esempio riscaldamento, prog
 - Quando raggiunge il target (20,5) il setpoint dell'unità passa al mantenimento (18,0) e lì resta.
 - Se la stanza scende fino al ritorno (18,5) l'unità torna al programma (20,0) finché non raggiunge di nuovo 20,5. Tra 18,5 e 20,5 nulla cambia (isteresi).
 - Controllo per unità ogni 5 minuti; si scrive solo se il valore differisce.
+- Variante **"si spegne"**: invece del setpoint di mantenimento, al target l'unità si spegne e si riaccende al ritorno (la temperatura di mantenimento non serve).
+- Tutto è per singola unità: ognuna usa la temperatura della propria stanza, le altre non cambiano.
+
 Raffreddamento: stessa logica con segni invertiti (programma 24 → target 23,5 · mantenimento 26,0 · ritorno 25,5).
 Coerenza (validata da app e server): riscaldamento mantenimento ≤ ritorno < target e target ≥ temperatura della fase; raffreddamento specchiato. Solo per Raffreddamento e Riscaldamento. Gli scenari salvati col vecchio formato (Spinta iniziale / Mantenimento con soglia) vanno riaperti e salvati di nuovo: il vecchio mantenimento viene ignorato.
 
@@ -24,10 +27,10 @@ Coerenza (validata da app e server): riscaldamento mantenimento ≤ ritorno < ta
 Scelta per ambiente (lista a scorrimento) oppure per singole unità; salvata come elenco di unità (id) più nome gruppo. Il conteggio unità nelle card è calcolato, non salvato.
 
 ## Home scenari / dettaglio
-Home: scenario in corso (nome, fase X di Y, giorni, n. unità, n. unità in mantenimento, barra avanzamento fino alla fine fase), altri scenari con tasto ▶ (avvia, chiede conferma se uno è già attivo), 'Nuovo scenario'. Dettaglio: timeline fasi, stato per unità (in salita / a target / in mantenimento), 'Salta alla fase', 'Modifica', 'Ferma'. 'Ferma' chiede "Vuoi spegnere l'impianto?": spegni tutto (le unità dello scenario) oppure lascia così (restano come sono); in entrambi i casi lo scenario si interrompe subito.
+Home: scenario in corso (nome, fase X di Y, giorni, n. unità, n. unità in mantenimento, barra avanzamento fino alla fine fase), altri scenari con tasto ▶ (avvia dopo conferma; se uno è già attivo apre "Cambiare scenario?"), 'Nuovo scenario'. Dettaglio di uno scenario fermo: riquadro "Non avviato" e 'Avvia ora'. Dettaglio di uno avviato: timeline fasi, stato per unità (in salita / a target / in mantenimento), 'Salta alla fase', 'Modifica', 'Ferma'. 'Ferma' chiede "Vuoi spegnere l'impianto?": spegni tutto (le unità dello scenario) oppure lascia così (restano come sono); in entrambi i casi lo scenario si interrompe subito.
 
 ## Dati / persistenza
-Tabella scenari (nome, modalità, giorni, unità), fasi come JSON dentro lo scenario (tipo, nome, target, fino, mant:{target,temp,ritorno}, oscillazione), tabella stato run (scenario, fase corrente, unità in mantenimento, ultimo controllo). Lo stato run sopravvive al riavvio del server: al riavvio riprende dal ciclo successivo.
+Tabella scenari (nome, modalità, giorni, unità), fasi come JSON dentro lo scenario (tipo, nome, target, fino, mant:{target,temp,ritorno} oppure {target,spegni:true,ritorno}, oscillazione), tabella stato run (scenario, fase corrente, unità in mantenimento, ultimo controllo). Lo stato run sopravvive al riavvio del server: al riavvio riprende dal ciclo successivo.
 
 ## Header data/ora impianto
 In prova sulla home scura: data e ora lette dall'impianto (non dal telefono), con pallino verde se l'ultima lettura è recente. Se la lettura è più vecchia di 10 min il pallino diventa ambra/rosso.
@@ -36,3 +39,6 @@ In prova sulla home scura: data e ora lette dall'impianto (non dal telefono), co
 - Conserva solo gli ultimi 30 giorni (potatura all'avvio e ogni 6 ore, indice su `ts`).
 - `/api/log` è paginato a cursore (`?before=<id>&limit=30&q=<testo>`); in "Altro" scorre in una finestra propria, 30 voci per volta.
 - I comandi sono scritti in modo leggibile ("Camera 1: spenta", "Cucina: setpoint 19 → 21 °C").
+
+## Navigazione
+Rotte con hash: `#/stato`, `#/grafico`, `#/scenari`, `#/scenari/<id>`, `#/ambienti`, `#/altro`, `#/unita/<id>`. Ricaricando si resta sulla stessa pagina; funzionano avanti/indietro del browser e il gesto indietro del telefono. Gli editor non hanno rotta propria: ricaricando si torna alla pagina di partenza.

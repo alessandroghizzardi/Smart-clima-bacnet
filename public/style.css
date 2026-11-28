@@ -180,3 +180,4 @@ nav button{display:flex;flex-direction:column;align-items:center;gap:4px;font-si
 .offdim{opacity:.55}.u.ro.on{box-shadow:inset 5px 0 0 var(--c)}.u.ro:not(.on){opacity:.8}.u.ro .rb{background:var(--muted)}.u.ro.on .rb{background:var(--c)}
 .spro{margin-top:9px;font-size:12.5px;color:var(--muted);font-weight:600}
 #toast .ti svg{width:19px;height:19px;stroke-width:2.6}#toast .tclose svg{width:18px;height:18px;stroke-width:2.2}
+.hero.attesa{text-align:center;padding-top:34px;padding-bottom:34px}.hero.attesa h2{margin:0 0 6px}.ld{display:block;width:34px;height:34px;margin:0 auto 16px;border-radius:50%;border:3px solid currentColor;border-right-color:transparent;opacity:.55;animation:gira .8s linear infinite}

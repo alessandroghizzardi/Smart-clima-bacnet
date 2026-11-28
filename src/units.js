@@ -1,7 +1,21 @@
-const data = require('./config').leggiFile('units');
+const cfg = require('./config');
+const { db, tx, addLog } = require('./db');
 const ambienti = require('./repo/ambienti');
 const { nonValido, nonTrovato } = require('./errori');
-const unita = data.unita;
+
+// Le unità dell'impianto stanno nel database (tabella `unita`). A tabella vuota (primo avvio) si crea un'unità
+// per ogni id di bacnet-map, con nome provvisorio ("Unità 11"): nomi e ordine si cambiano poi nel database.
+const q = {
+  tutte: db.prepare('SELECT id, nome FROM unita ORDER BY ordine, CAST(id AS INTEGER), id'),
+  ins: db.prepare('INSERT INTO unita (id, nome, ordine) VALUES (?, ?, ?)'),
+};
+if (!q.tutte.all().length) {
+  const ids = Object.keys(cfg.leggiFile('bacnet-map'));
+  tx(() => ids.forEach((id, i) => q.ins.run(id, `Unità ${id}`, i + 1)));
+  addLog('avviso', `${ids.length} unità create da bacnet-map con nomi provvisori`);
+}
+
+const unita = q.tutte.all().map(r => ({ id: r.id, nome: r.nome }));
 const byId = Object.fromEntries(unita.map(u => [u.id, u]));
 ambienti.imposta(unita.map(u => u.id));
 function risolvi(target) {            // 'all' | 'group:<id ambiente>' | 'unit:15'

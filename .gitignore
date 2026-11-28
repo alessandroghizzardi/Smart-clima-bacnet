@@ -6,7 +6,6 @@ node_modules/
 data/
 
 # configurazione dell'impianto: locale, si parte dai file *.example.json
-config/units.json
 config/bacnet-map.json
 
 # esportazione degli oggetti BACnet del proprio impianto

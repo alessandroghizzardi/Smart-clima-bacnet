@@ -19,6 +19,8 @@ CREATE INDEX IF NOT EXISTS idx_log_ts ON log(ts);
 -- ambienti: gruppi di unità definiti dall'utente (usati in Stato, Grafico e Scenari)
 CREATE TABLE IF NOT EXISTS ambienti (id INTEGER PRIMARY KEY AUTOINCREMENT, nome TEXT NOT NULL, ordine INTEGER NOT NULL DEFAULT 0);
 CREATE TABLE IF NOT EXISTS ambienti_unita (ambiente INTEGER NOT NULL, unita TEXT NOT NULL, PRIMARY KEY (ambiente, unita));
+-- unità interne dell'impianto: id = indirizzo sul gateway BACnet (chiave di bacnet-map), nome e ordine scelti dall'utente
+CREATE TABLE IF NOT EXISTS unita (id TEXT PRIMARY KEY, nome TEXT NOT NULL, ordine INTEGER NOT NULL DEFAULT 0);
 CREATE TABLE IF NOT EXISTS kv (k TEXT PRIMARY KEY, v TEXT);
 `);
 

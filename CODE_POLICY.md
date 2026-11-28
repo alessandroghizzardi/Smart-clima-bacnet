@@ -74,4 +74,4 @@ c'è *come si scrive*. In caso di dubbio vince la sicurezza dell'impianto.
 
 - Si lavora su branch (`feature/…`, `fix/…`, `chore/…`) e si entra in `main` solo con PR.
 - Commit e PR in italiano, al presente, che dicono cosa cambia per l'utente.
-- Mai committare `.env`, `data/`, `config/units.json`, `config/bacnet-map.json`.
+- Mai committare `.env`, `data/`, `config/bacnet-map.json`.

@@ -29,16 +29,15 @@ npm run setup
 | Crea | Da | Contenuto |
 |---|---|---|
 | `.env` | `.env.example` | nome del sito, IP del gateway, porta |
-| `config/units.json` | `config/units.example.json` | elenco delle unità interne (id, nome, piano, potenza) |
 | `config/bacnet-map.json` | `config/bacnet-map.example.json` | indirizzi BACnet dei punti di ogni unità |
-| `data/smart-clima.db` | – | **database vuoto** con lo schema già pronto e le chiavi VAPID per le notifiche |
+| `data/smart-clima.db` | – | **database** con lo schema già pronto, le chiavi VAPID per le notifiche e le unità dell'impianto (vedi sotto) |
 
 Il database non fa parte del repository: viene creato dallo script (o al primo avvio, se non esiste).
 
 ## Configurazione
 
 1. **`.env`**: imposta almeno `AC_IP` (IP del gateway BACnet). Opzionali: `SITE_NAME` (nome mostrato in app, titolo, icona PWA, notifiche), `PORT`, `HOST`, `TZ`, `DB_PATH`, `VAPID_SUBJECT`. Tutte le voci sono commentate in `.env.example`.
-2. **`config/units.json`**: un elemento per unità interna. `id` è l'indirizzo dell'unità sul gateway; `nome`, `stanza`, `piano` e `kw` sono etichette tue.
+2. **Unità interne**: stanno nel database (tabella `unita`: id, nome, ordine). Al primo avvio se ne crea una per ogni `id` di `config/bacnet-map.json`, con nome provvisorio ("Unità 11").
 3. **`config/bacnet-map.json`**: per ogni `id`, il tipo e l'istanza BACnet dei punti (accensione, setpoint, temperatura, modo, ventola, oscillazione, allarme…). L'esempio usa la numerazione standard dei gateway LG; se il tuo impianto è diverso puoi rigenerare il file dall'elenco degli oggetti letto dal gateway:
    ```bash
    # metti l'elenco in scripts/oggetti-bacnet-letti.json, poi:
@@ -47,7 +46,7 @@ Il database non fa parte del repository: viene creato dallo script (o al primo a
    Il file è un array di coppie `["tipo,istanza", {"object-name": "ac_<Voce>_<id>", ...}]`.
 4. Dopo l'avvio, **IP, porta locale UDP, timeout, intervalli e soglie** si possono cambiare anche dall'app (*Altro → Impostazioni*, protette da una conferma): quei valori sono salvati nel database e hanno la precedenza su `.env`.
 
-I file `.env`, `config/units.json`, `config/bacnet-map.json` e `data/` sono nel `.gitignore`: la configurazione del tuo impianto resta sulla tua macchina.
+I file `.env`, `config/bacnet-map.json` e `data/` sono nel `.gitignore`: la configurazione del tuo impianto resta sulla tua macchina.
 
 ## Avvio
 

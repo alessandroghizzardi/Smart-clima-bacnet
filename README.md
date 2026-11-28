@@ -123,6 +123,19 @@ Poi riavvia il server. Se l'app sembra non aggiornarsi, ricarica la pagina senza
 
 Scheletro in `.github/workflows/`: `ci.yml` esegue i test su ogni PR; il deploy parte **solo quando si pubblica un tag `v*`** (es. `git tag v1.0.0 && git push origin v1.0.0`, da `main`): `deploy.sh` (via `deploy.yml`) copia il codice sul Raspberry e riavvia il servizio, tramite un runner GitHub self-hosted con label `smart-clima`. Il deploy resta spento finché non imposti le variabili di repository `DEPLOY_ENABLED=true` e `DEPLOY_DIR`. Configurazione, dati e `.env` sul Raspberry non vengono mai sovrascritti.
 
+## Idee e roadmap
+
+Cose non ancora fatte, in ordine sparso. Contributi benvenuti.
+
+- **Gestione delle unità dall'app**: rinomina e ordine delle unità (oggi nel database, con nomi provvisori al primo avvio).
+- **Setpoint su più unità scelte** in un solo comando (oggi: una unità alla volta, un ambiente o "Applica a tutte").
+- **Accesso da fuori casa protetto**: l'app non ha login. Prima di esporla serve un tunnel con autenticazione (es. ngrok con OAuth o basic auth) e/o un PIN nell'app per i comandi.
+- **Rilasci automatici** sul Raspberry con un runner GitHub self-hosted (scheletro in `.github/workflows/deploy.yml`), limitato ai push su `main`.
+- **Gruppi di AC Smart**: non sono esposti via BACnet; si potrebbero importare dall'interfaccia web di AC Smart o da un file.
+- **Prese smart** (es. Shelly) per carichi elettrici collegati al riscaldamento, come gli scaldasalviette.
+- **Notifiche via email** in aggiunta alle push.
+- **Modalità Auto negli scenari**: esclusa per ora (logica complessa); Ventilazione e Deumidificazione sono già fasi a tempo.
+
 ## Sviluppo
 
 Si lavora su branch `feature/<nome>` e si porta in `main` con una pull request.

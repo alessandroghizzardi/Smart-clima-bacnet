@@ -10,11 +10,3 @@ config/bacnet-map.json
 
 # esportazione degli oggetti BACnet del proprio impianto
 scripts/oggetti-bacnet-letti.json
-
-# materiale di lavoro personale
-proposte/
-
-# note di lavoro personali
-BACKLOG.md
-PIANO_TEST.md
-DESIGN_BRIEF.md

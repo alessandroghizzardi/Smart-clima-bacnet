@@ -15,6 +15,7 @@ const ipImpianto = () => { if (!cfg.bacnet.ip) throw new Error('IP del gateway B
 // e il successivo si ricrea da zero: così un socket rimasto in uno stato strano non blocca l'app fino al riavvio.
 const ERRORI_RICREA = 3;
 let client, errori = 0;
+let lettureKo = 0;   // letture di stato fallite di fila
 function chiudiClient() { try { client && client.close(); } catch { /* già chiuso */ } client = null; errori = 0; }
 function getClient() {
   if (!client) {
@@ -45,9 +46,11 @@ async function leggiStato() {
   const richiesta = [];
   for (const u of unita) for (const v of voci)
     richiesta.push({ objectId: { type: mappa[u][v].type, instance: mappa[u][v].instance }, properties: [{ id: PRESENT_VALUE }] });
-  // la lettura è idempotente: un timeout isolato si ritenta una volta (le scritture invece mai)
+  // la lettura è idempotente: un timeout isolato si ritenta una volta (le scritture invece mai). Se l'ultima lettura
+  // era già fallita l'impianto è probabilmente giù: niente secondo tentativo, così l'esito arriva in un solo timeout.
   const leggi = () => serializza(() => p(cb => getClient().readPropertyMultiple(ipImpianto(), richiesta, cb)));
-  const res = await leggi().catch(e => /TIMEOUT/.test(e.message) ? leggi() : Promise.reject(e));
+  const res = await leggi().catch(e => /TIMEOUT/.test(e.message) && !lettureKo ? leggi() : Promise.reject(e))
+    .then(r => { lettureKo = 0; return r; }, e => { lettureKo++; throw e; });
   if (!res || !Array.isArray(res.values)) throw new Error('risposta BACnet incompleta (nessun valore)');
   const perOggetto = new Map();
   for (const o of res.values) if (o?.objectId) perOggetto.set(`${o.objectId.type}:${o.objectId.instance}`, valoreDa(o.values?.[0]));

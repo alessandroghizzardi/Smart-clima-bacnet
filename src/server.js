@@ -39,12 +39,13 @@ app.get('/api/config', (req, res) => res.json({
 }));
 app.post('/api/scrittura', wrap((req, res) => res.json({ scrittura: mode.imposta(!!req.body.attiva) })));
 // Con l'impianto offline risponde comunque 200: ultimo stato noto + `errore`, storico della connessione e ultimi
-// avvisi/errori del registro, per la schermata «Impianto non raggiungibile».
+// avvisi/errori del registro, per la schermata «Impianto non raggiungibile». `inVerifica`: server appena partito, primo
+// tentativo di lettura non ancora concluso (i valori sono quelli salvati prima del riavvio).
 const qErrori = db.prepare("SELECT rowid AS id, ts, tipo, testo FROM log WHERE tipo IN ('avviso','errore') ORDER BY rowid DESC LIMIT ?");
 app.get('/api/state', wrap(async (req, res) => {
   const u = req.query.live === '1' ? await poller.leggiViva().catch(() => poller.ultimo()) : poller.ultimo();
   const offline = u.errore ? { connessione: poller.connessione(), erroriRecenti: qErrori.all(9) } : {};
-  res.json({ ...u, ...offline, ora: clock.adesso(), tz: cfg.timezone, scrittura: mode.attiva() });
+  res.json({ ...u, ...offline, inVerifica: poller.inVerifica(), ora: clock.adesso(), tz: cfg.timezone, scrittura: mode.attiva() });
 }));
 
 // ---- storico temperature

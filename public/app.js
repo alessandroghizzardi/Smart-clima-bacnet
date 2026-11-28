@@ -117,10 +117,11 @@ function applicaAttese(stato) {
   }
   return stato;
 }
+let VERIFICA = false;   // server appena riavviato: primo tentativo di lettura in corso
 async function caricaStato(live) {
   try {
     const s = await api('/api/state' + (live === true ? '?live=1' : ''));
-    STATO = applicaAttese(s.stato || {}); ORA = s.ora; TS = s.ts; ERR = s.errore || null; CFG.scrittura = s.scrittura;
+    STATO = applicaAttese(s.stato || {}); ORA = s.ora; TS = s.ts; ERR = s.errore || null; CFG.scrittura = s.scrittura; VERIFICA = !!s.inVerifica;
     CONN = s.connessione || null; ERRORI = s.erroriRecenti || []; if (!ERR) ERR_TUTTI = false;
   } catch (e) { ERR = e.message; CONN = null; }   // server irraggiungibile: restano gli ultimi valori ricevuti
   rerender();
@@ -265,8 +266,12 @@ function vStatoOffline() {
   <div class="lb">${TS ? `Unità · valori delle ${hm(TS)}` : 'Unità'}</div>
   <div class="offdim">${segFiltro()}<div class="list">${ids.map(id => cardUnita(unita(id), STATO[id] || {}, true)).join('')}</div></div>`;
 }
+// Server appena riavviato, primo tentativo di lettura in corso: niente valori vecchi spacciati per attuali.
+const vStatoAttesa = () => `<div class="hero attesa"><i class="ld" aria-hidden="true"></i><h2>Collegamento all'impianto…</h2>
+  <small>${TS ? 'ultima lettura ' + hm(TS) : 'in attesa della prima lettura'}</small></div>`;
 function vStato() {
   filtroValido();
+  if (VERIFICA && !ERR) return vStatoAttesa();
   if (ERR) return vStatoOffline();
   const all = CFG.unita.map(u => STATO[u.id]).filter(Boolean), on = all.filter(s => s.acceso).length, avg = mediaTemp();
   const titolo = on === 0 ? 'La casa è spenta' : avg != null && avg < 17 ? 'La casa è fredda' : avg != null && avg < 21 ? 'La casa si sta scaldando' : 'La casa è in temperatura';
@@ -993,6 +998,7 @@ async function caricaConfig() {
   await Promise.all([caricaStato(), caricaRun()]);
   try { SC = await api('/api/scenari'); } catch {}
   applicaRotta(); ROTTE_OK = true; history.replaceState(null, '', rotta()); render();
+  if (VERIFICA) caricaStato(true);   // si aggancia alla lettura in corso sul server: risponde appena finisce
   // Con l'app aperta: lettura dell'impianto ogni POLL_S secondi (solo se la pagina è visibile).
   const POLL_S = 10;
   setInterval(() => { if (!document.hidden) { caricaStato(true); if (TAB === 'altro') caricaLog(); } }, POLL_S * 1000);

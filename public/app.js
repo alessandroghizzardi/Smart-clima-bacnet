@@ -23,7 +23,7 @@ const IC = {
   4: '<path d="M12 3l2.2 5.8L20 11l-5.8 2.2L12 19l-2.2-5.8L4 11l5.8-2.2z"/>',
   5: '<path d="M12 2c1 4 5 6 5 11a5 5 0 0 1-10 0c0-2 1-3 2-4 0 2 1 3 2 3 0-4-1-6 1-10z"/>',
   bolt: '<path d="M13 3L5 14h6l-1 7 8-11h-6z"/>', loop: '<path d="M17 2l4 4-4 4"/><path d="M3 11V9a3 3 0 013-3h15"/><path d="M7 22l-4-4 4-4"/><path d="M21 13v2a3 3 0 01-3 3H3"/>',
-  power: '<path d="M12 3v9M6.3 6.8a8 8 0 1 0 11.4 0"/>', refresh: '<path d="M20 11a8 8 0 1 0-2.3 5.7M20 4v7h-7"/>',
+  power: '<path d="M12 3v9M6.3 6.8a8 8 0 1 0 11.4 0"/>', termo: '<path d="M14 14.5V5a2 2 0 00-4 0v9.5a4 4 0 104 0z"/><path d="M12 11v6"/>', refresh: '<path d="M20 11a8 8 0 1 0-2.3 5.7M20 4v7h-7"/>',
   back: '<path d="M15 5l-7 7 7 7"/>', plus: '<path d="M12 5v14M5 12h14"/>', minus: '<path d="M5 12h14"/>', check: '<path d="M5 12.5l4.5 4.5L19 7.5"/>',
   grip: '<path d="M9 7h.01M15 7h.01M9 12h.01M15 12h.01M9 17h.01M15 17h.01" stroke-width="3.2"/>', edit: '<path d="M4 20h4L19 9l-4-4L4 16z"/>', trash: '<path d="M4 7h16M10 11v6M14 11v6M6 7l1 12a2 2 0 002 2h6a2 2 0 002-2l1-12M9 7V4h6v3"/>', copy: '<rect x="8" y="8" width="12" height="12" rx="2.5"/><path d="M16 8V6.5A2.5 2.5 0 0013.5 4h-7A2.5 2.5 0 004 6.5v7A2.5 2.5 0 006.5 16H8"/>', stop: '<circle cx="12" cy="12" r="9.5" stroke-width="2.6"/><rect x="8.3" y="8.3" width="7.4" height="7.4" rx="2" fill="currentColor" stroke="none"/>', play: '<path d="M7 4l13 8-13 8z"/>',
   eye: '<path d="M2 12s4-7 10-7 10 7 10 7-4 7-10 7S2 12 2 12z"/><circle cx="12" cy="12" r="3"/>', pen: '<path d="M4 20l1-4L16 5l3 3L8 19z"/>',
@@ -169,9 +169,41 @@ function navBar() {
   const t = [['stato', 'Stato', 'tStato'], ['grafico', 'Grafico', 'tGraf'], ['scenari', 'Scenari', 'tScen'], ['ambienti', 'Ambienti', 'tAmb'], ['altro', 'Altro', 'tAltro']];
   $('#nav').innerHTML = t.map(([k, n, i]) => `<button class="${TAB === k ? 'on' : ''}" data-a="tab" data-t="${k}">${I(IC[i])}${n}</button>`).join('');
 }
+// ---- rotte (hash): #/stato #/grafico #/scenari #/scenari/<id> #/ambienti #/altro #/unita/<id>
+// Gli editor (scenario, fase, ambiente) non hanno una rotta propria: ricaricando si torna alla pagina di partenza.
+const TABS = ['stato', 'grafico', 'scenari', 'ambienti', 'altro'];
+let ROTTE_OK = false, SALTA_POP = false;
+function rotta() {
+  if (SUB?.k === 'unit') return '#/unita/' + encodeURIComponent(S.ud.id);
+  if (SUB?.k === 'scd') return '#/scenari/' + SUB.id;
+  if (SUB?.k === 'wiz' || SUB?.k === 'ph') return S.wz?.id ? '#/scenari/' + S.wz.id : '#/scenari';
+  if (SUB?.k === 'amb') return '#/ambienti';
+  return '#/' + TAB;
+}
+function sincronizzaRotta() {
+  if (!ROTTE_OK) return;
+  const r = rotta(), h = location.hash || '#/stato';
+  if (h === r) return;
+  if (history.state?.prima === r) { SALTA_POP = true; history.back(); }     // «indietro» nell'app = indietro nella cronologia
+  else history.pushState({ prima: h }, '', r);
+}
+function caricaTab() { if (TAB === 'grafico') caricaStorico(); if (TAB === 'scenari') caricaRun(); if (TAB === 'altro') { caricaLog(); caricaImp(); } }
+function applicaRotta() {
+  const [, a, b] = location.hash.match(/^#\/([a-z]+)(?:\/([^/]+))?/) || [], id = b && decodeURIComponent(b);
+  SUB = null; SHEET = null;
+  if (a === 'unita' && id && CFG.unita.some(u => u.id === id)) { TAB = 'stato'; apriUnita(id); }
+  else {
+    TAB = TABS.includes(a) ? a : 'stato';
+    if (a === 'scenari' && id && SC.some(s => s.id === Number(id))) ACT.scd({ id });
+  }
+  scrollTo(0, 0); caricaTab();
+}
+addEventListener('popstate', () => { if (SALTA_POP) { SALTA_POP = false; return; } if (!ROTTE_OK) return; applicaRotta(); render(); });
+
 function render() {
   if (!CFG || DRAG) return;   // durante il trascinamento il DOM non va ricostruito
   document.body.classList.toggle('ro', !CFG.scrittura);
+  sincronizzaRotta();
   hdr(); navBar();
   let h;
   if (SUB) h = { unit: vUnit, scd: vScd, wiz: vWiz, ph: vFase, amb: vAmb }[SUB.k](); else h = { stato: vStato, grafico: vGrafico, scenari: vScenari, ambienti: vAmbienti, altro: vAltro }[TAB]();
@@ -348,8 +380,8 @@ function vScenari() {
   const altri = SC.filter(s => !(RUN.attivo && RUN.scenario_id === s.id));
   return `<div class="h1">Scenari</div>${bannerRun()}
   <div class="lb">${RUN.attivo ? 'Altri scenari' : 'Scenari'}</div>
-  ${altri.map(s => `<div class="sc2" style="--c:var(--c${s.modo})" data-a="scd" data-id="${s.id}"><div class="ico">${I(IC[s.modo])}</div><div><b>${esc(s.nome)}</b><span>${MODI[s.modo]} · ${giorniTxt(s)} · ${s.fasi.length} fasi<br>${esc(nomeGruppoDi(s.unita))} · ${s.unita.length} unità</span></div><div class="go">${I(IC.play)}</div></div>`).join('') || '<div class="note">Nessun altro scenario.</div>'}
-  <div class="note">Un solo scenario è attivo alla volta: se ne avvii un altro, quello in corso viene interrotto (ti chiedo conferma).${CFG.scrittura ? '' : ' Con la scrittura disattivata gli scenari sono solo da consultare.'}</div>
+  ${altri.map(s => `<div class="sc2" style="--c:var(--c${s.modo})" data-a="scd" data-id="${s.id}"><div class="ico">${I(IC[s.modo])}</div><div><b>${esc(s.nome)}</b><span>${MODI[s.modo]} · ${giorniTxt(s)} · ${s.fasi.length} fasi<br>${esc(nomeGruppoDi(s.unita))} · ${s.unita.length} unità</span></div><button class="go${W()}" data-a="avvia" data-id="${s.id}" aria-label="Avvia ${esc(s.nome)}">${I(IC.play)}</button></div>`).join('') || '<div class="note">Nessun altro scenario.</div>'}
+  <div class="note">Uno scenario parte solo quando lo avvii: da lì si ripete da solo nei suoi giorni finché non lo interrompi. Un solo scenario è attivo alla volta: se ne avvii un altro, quello in corso viene interrotto.${CFG.scrittura ? '' : ' Con la scrittura disattivata gli scenari sono solo da consultare.'}</div>
   <button class="cta${W()}" data-a="nuovo" style="--c:var(--warm)">${I(IC.plus)}Nuovo scenario</button>`;
 }
 function vScd() {
@@ -368,9 +400,9 @@ function vScd() {
     : `<div class="ban" style="--c:${c};margin-top:6px"><div class="bt"><span>${I(IC.cal)} ${RUN.inPausa ? 'In pausa · sola lettura' : 'Fase in corso'}</span><span class="live"><i></i>${dal ? 'Dal ' + dal : 'In corso'}</span></div>
       <div class="bn"><div><b>${RUN.fase + 1} · ${esc(RUN.faseNome || '')}</b><span>${etichettaFase(sc.modo, f)}${RUN.fineFase ? ' · fino alle ' + RUN.fineFase : ''}</span></div></div>
       <div class="bar"><i style="width:${Math.round((RUN.progresso || 0) * 100)}%"></i></div><div class="bl"><span>Ora <b>${hm(Date.now())}</b></span><span>Fine <b>${RUN.fineFase || '–'}</b></span></div></div>`;
-  const adesso = !run || RUN.inAttesa || !f ? '' : `<div class="lb">Unità adesso</div><div class="panel" style="padding:4px 14px"><div class="lg"${m ? '' : ' style="border:0"'}><time>${(RUN.unita || []).filter(u => u.stato !== 'mant').length}</time><span class="k">Principale</span><span>${f.tipo === 'temp' ? `${MODI[sc.modo]} a ${fmt(f.target)}°` : NO_T[f.tipo] || ''}</span></div>${m ? `<div class="lg" style="border:0"><time>${RUN.inMant}</time><span class="k">Mantenim.</span><span>${MODI[sc.modo]} a ${fmt(m.temp)}° · tornano a ${fmt(f.target)}° ${sopra} ${fmt(m.ritorno)}°</span></div>` : ''}</div>`;
+  const adesso = !run || RUN.inAttesa || !f ? '' : `<div class="lb">Unità adesso</div><div class="panel" style="padding:4px 14px"><div class="lg"${m ? '' : ' style="border:0"'}><time>${(RUN.unita || []).filter(u => u.stato !== 'mant').length}</time><span class="k">Principale</span><span>${f.tipo === 'temp' ? `${MODI[sc.modo]} a ${fmt(f.target)}°` : NO_T[f.tipo] || ''}</span></div>${m ? `<div class="lg" style="border:0"><time>${RUN.inMant}</time><span class="k">Mantenim.</span><span>${m.spegni ? 'Spente' : `${MODI[sc.modo]} a ${fmt(m.temp)}°`} · tornano a ${fmt(f.target)}° ${sopra} ${fmt(m.ritorno)}°</span></div>` : ''}</div>`;
   return `${wh(sc.nome, `${{ 1: 'Raffreddamento', 5: 'Riscaldamento' }[sc.modo] || MODI[sc.modo]} · ${giorniTxt(sc)} · ${sc.unita.length} unità`)}
-  ${ban}${adesso}
+  ${ban}${adesso}${run ? '' : `<div class="nonav"><span class="pl"><i></i>Non avviato</span><p>Non parte da solo. Quando premi «Avvia ora» parte subito e poi si ripete ogni ${giorniTxt(sc)} alle ${sc.fasi[0].inizio}, finché non lo interrompi.</p></div>`}
   <div class="lb">Fasi</div><div class="panel" style="--c:${c}"><div class="tl">${tl}</div></div>
   <div class="lb">Impianti</div><div class="panel" style="display:flex;justify-content:space-between;align-items:center"><div><b>${esc(nomeGruppoDi(sc.unita))}</b><div class="cap" style="margin:2px 0 0">${sc.unita.length} unità</div></div><span class="chp c">${sc.unita.length}</span></div>
   ${LOGSC.length ? `<div class="lb">Cronologia</div><div class="panel" style="padding:4px 14px">${LOGSC.map(l => `<div class="lg"><time>${hm(l.ts)}</time><span class="k ${l.tipo === 'avviso' || l.tipo === 'errore' ? 'a' : ''}">${TAG_LOG[l.tipo] || 'Comando'}</span><span>${esc(l.testo)}</span></div>`).join('')}</div>` : ''}
@@ -525,7 +557,7 @@ function vWiz() {
     b = `<div class="panel" style="--c:${c}"><div class="sc2" style="--c:${c};border:0;padding:0;margin:0;cursor:default"><div class="ico">${I(IC[w.modo])}</div><div><b style="font-size:19px">${esc(w.nome || 'Senza nome')}</b><span>${MODI_LUNGO[w.modo]} · ${gg} · dalle ${w.fasi[0].inizio}</span></div><button class="ed" data-a="wzstep" data-s="1" aria-label="Modifica">${I(IC.edit)}</button></div>
     <div class="lb" style="margin:16px 0 6px">Impianti</div><div style="font-size:14px;font-weight:600">${esc(nomeGruppoDi(w.unita))} · ${w.unita.length} unità</div>
     <div class="lb" style="margin:14px 0 6px">Fasi</div>
-    <div class="tl" style="margin-top:6px">${w.fasi.map((f, i) => f.tipo === 'off' ? `<div class="tp"><span class="dt">${I(IC.power).replace('<svg', '<svg style="width:14px;height:14px"')}</span><b>${wzInizio(w, i)}</b><span class="s">Spegni impianto</span></div>` : `<div class="tp"><span class="dt">${i + 1}</span><b>${wzInizio(w, i)} → ${f.fino}</b><span class="s">${etichettaFase(w.modo, f)}${f.mant ? ` · arriva a ${fmt(f.mant.target)}° → mantenimento ${fmt(f.mant.temp)}° fino a ${fmt(f.mant.ritorno)}°` : ''}${f.oscillazione ? ' · su–giù' : ''}</span></div>`).join('')}</div></div>
+    <div class="tl" style="margin-top:6px">${w.fasi.map((f, i) => f.tipo === 'off' ? `<div class="tp"><span class="dt">${I(IC.power).replace('<svg', '<svg style="width:14px;height:14px"')}</span><b>${wzInizio(w, i)}</b><span class="s">Spegni impianto</span></div>` : `<div class="tp"><span class="dt">${i + 1}</span><b>${wzInizio(w, i)} → ${f.fino}</b><span class="s">${etichettaFase(w.modo, f)}${f.mant ? ` · arriva a ${fmt(f.mant.target)}° → ${f.mant.spegni ? 'spenta' : `mantenimento ${fmt(f.mant.temp)}°`} fino a ${fmt(f.mant.ritorno)}°` : ''}${f.oscillazione ? ' · su–giù' : ''}</span></div>`).join('')}</div></div>
     ${CFG.scrittura ? '' : '<div class="note">Con la scrittura disattivata lo scenario si salva ma non invia comandi: per farlo partire attiva prima la scrittura.</div>'}`;
   }
   const foot = w.step < 4 ? `${w.step > 1 ? '<button class="cta g" data-a="wzprev">Indietro</button>' : ''}<button class="cta" style="--c:${c}" data-a="wznext">Avanti${w.step === 2 ? ` · ${w.unita.length} unità` : ''}</button>`
@@ -541,41 +573,49 @@ function eliminaFase(i, nomeFase) {
     SUB = { k: 'wiz' }; render();
   }, { titolo: 'Eliminare la fase?', ok: 'Elimina', pericolo: true });
 }
-// Mantieni temperatura: tre soglie per fase. Riscaldamento: ritorno < target del mantenimento; raffrescamento: specchiato.
-const mantChips = (f) => f.mant && f.mant.target != null ? `<span class="chp">${I(IC.bolt)}Arriva a ${fmt(f.mant.target)}°</span><span class="chp">${I(IC.loop)}Mant. ${fmt(f.mant.temp)}° → ${fmt(f.mant.ritorno)}°</span>` : '';
-const mantChip = (f) => f.mant && f.mant.target != null ? `<span class="chp">${I(IC.bolt)}Arriva a ${fmt(f.mant.target)}°</span><span class="chp">${I(IC.loop)}Mant. ${fmt(f.mant.temp)}°</span>` : '';
+// Mantieni temperatura: tre soglie per fase (per singola unità). Riscaldamento: ritorno < target del mantenimento; raffrescamento: specchiato.
+// Con "si spegne" (mant.spegni) l'unità si spegne invece di tenere un setpoint, e si riaccende al ritorno.
+const mantOn = (f) => f.mant && f.mant.target != null;
+const mantDur = (m) => m.spegni ? 'spenta' : `${fmt(m.temp)}°`;
+const mantChips = (f) => mantOn(f) ? `<span class="chp">${I(IC.bolt)}Arriva a ${fmt(f.mant.target)}°</span><span class="chp">${I(f.mant.spegni ? IC.power : IC.loop)}${f.mant.spegni ? 'Spenta' : `Mant. ${fmt(f.mant.temp)}°`} → ${fmt(f.mant.ritorno)}°</span>` : '';
+const mantChip = (f) => mantOn(f) ? `<span class="chp">${I(IC.bolt)}Arriva a ${fmt(f.mant.target)}°</span><span class="chp">${I(f.mant.spegni ? IC.power : IC.loop)}${f.mant.spegni ? 'Spenta' : `Mant. ${fmt(f.mant.temp)}°`}</span>` : '';
 const mantIniziale = (t, risc) => ({ target: clamp(t + (risc ? .5 : -.5)), temp: clamp(t + (risc ? -2 : 2)), ritorno: clamp(t + (risc ? -1.5 : 1.5)) });
 function mantErrore(p, risc) {                    // stesse regole del server (logic.valida)
   const m = p.mant, oltre = (x, y) => risc ? x > y : x < y, sotto = risc ? 'sotto' : 'sopra';
   if (oltre(p.target, m.target)) return `Il target del mantenimento non può stare ${sotto} la temperatura della fase`;
   if (!oltre(m.target, m.ritorno)) return `Il ritorno al programma deve stare ${sotto} il target`;
-  if (oltre(m.temp, m.ritorno)) return `La temperatura di mantenimento non può stare ${risc ? 'sopra' : 'sotto'} il ritorno`;
+  if (!m.spegni && oltre(m.temp, m.ritorno)) return `La temperatura di mantenimento non può stare ${risc ? 'sopra' : 'sotto'} il ritorno`;
   return null;
 }
-const mst = (v, act) => `<div class="bst"><button data-a="${act}" data-d="-0.5">${I(IC.minus)}</button><div><b>${fmt(v)}</b> <small>°C</small></div><button data-a="${act}" data-d="0.5">${I(IC.plus)}</button></div>`;
-function mantDiagramma(p, risc) {              // andamento della stanza a dente di sega tra target e ritorno
-  const m = p.mant, W = 300, H = 120, hi = Math.max(p.target, m.target, m.ritorno, m.temp), lo = Math.min(p.target, m.target, m.ritorno, m.temp), sp = (hi - lo) || 1;
-  const y = (v) => 14 + (hi - v) / sp * (H - 34), yT = y(m.target), yR = y(m.ritorno);
-  const [a, b] = risc ? [yR, yT] : [yT, yR];      // estremi dell'oscillazione sul grafico
-  const etT = risc ? yT - 5 : yT + 13, etR = risc ? yR + 13 : yR - 5;   // etichette sul lato esterno delle righe, staccate dal tratteggio
-  const pts = `0,${a} 60,${a} 100,${b} 120,${b} 160,${a} 210,${a} 250,${b} ${W},${b}`.split(' ').map((q, k) => k === 1 || k === 5 ? q : q).join(' ');
-  return `<svg class="dg" viewBox="0 0 ${W} ${H}" role="img" aria-label="Andamento della temperatura della stanza">
-  <line x1="0" x2="${W}" y1="${yT}" y2="${yT}" stroke="var(--warm)" stroke-dasharray="4 4" opacity=".6"/><text x="4" y="${etT}" fill="currentColor">target ${fmt(m.target)}°</text>
-  <line x1="0" x2="${W}" y1="${yR}" y2="${yR}" stroke="var(--warm)" stroke-dasharray="4 4" opacity=".6"/><text x="4" y="${etR}" fill="currentColor">ritorno ${fmt(m.ritorno)}°</text>
-  <polyline points="${pts}" fill="none" stroke="var(--warm)" stroke-width="2.5" stroke-linejoin="round"/></svg>`;
+function mantDiagramma(p, risc) {              // andamento illustrativo della stanza: programma → mantenimento (o spenta) → programma
+  const m = p.mant, off = !!m.spegni, yT = risc ? 30 : 118, yR = risc ? 100 : 48;
+  const seg = risc ? ['M0,118 C40,100 60,50 90,30', `M90,30 C120,${off ? 34 : 38} 150,${off ? 74 : 80} 170,100`, 'M170,100 C195,92 215,50 245,30', `M245,30 C270,${off ? 34 : 40} 300,${off ? 76 : 82} 326,100`]
+    : ['M0,30 C40,48 60,98 90,118', 'M90,118 C120,110 150,68 170,48', 'M170,48 C195,56 215,98 245,118', 'M245,118 C270,108 300,66 326,48'];
+  const linea = (d, k) => `<path d="${d}" fill="none" stroke="${k % 2 && off ? 'var(--muted)' : 'var(--warm)'}" stroke-width="2.6" stroke-linecap="round"${k % 2 && off ? ' stroke-dasharray="1 6"' : ''}/>`;
+  const pill = (x, w, k) => `<rect x="${x}" y="132" width="${w}" height="20" rx="10" fill="${k % 2 ? 'var(--card2)' : 'var(--warm)'}"/><text x="${x + w / 2}" y="146" text-anchor="middle" style="fill:${k % 2 ? 'var(--muted)' : '#fff'}">${k % 2 ? (off ? 'Spenta' : fmt(m.temp) + '°') : fmt(p.target) + '°'}</text>`;
+  return `<svg class="dg" viewBox="0 0 326 160" role="img" aria-label="Andamento della temperatura della stanza${off ? ' con unità spenta in mantenimento' : ' con mantenimento'}">
+  <line x1="0" x2="326" y1="${yT}" y2="${yT}" stroke="var(--muted)" stroke-dasharray="4 4"/><line x1="0" x2="326" y1="${yR}" y2="${yR}" stroke="var(--muted)" stroke-dasharray="4 4"/>
+  <text x="326" y="${yT - 9}" text-anchor="end" class="tx">Target ${fmt(m.target)}°</text>
+  ${seg.map(linea).join('')}${[[90, yT], [170, yR], [245, yT]].map(([x, y]) => `<circle cx="${x}" cy="${y}" r="4" fill="var(--warm)"/>`).join('')}
+  ${[[1, 88], [91, 78], [171, 73], [246, 79]].map(([x, w], k) => pill(x, w, k)).join('')}</svg>`;
 }
-function mantPannello(p, risc, c) {      // grafico e passi usano i colori generici (--ac), non quelli della modalità
-  const m = p.mant, err = mantErrore(p, risc), t = fmt(p.target), verso = risc ? 'sale' : 'scende', contro = risc ? 'scende' : 'sale';   // la stanza va verso il target, poi si allontana fino al ritorno
-  const passo = (n, tit, v, act, sub) => `<div class="mps"><span class="mn">${n}</span><div class="mb"><b>${tit}</b>${mst(v, act)}<span class="cap">${sub}</span></div></div>`;
-  return `<div class="panel" style="--c:${c}"><div class="t"><b>Come si comporta</b></div>${mantDiagramma(p, risc)}
-    <div class="chs"><span class="chp c" style="--c:var(--warm)">Programma ${fmt(p.target)}°</span><span class="chp">Mantenimento ${fmt(m.temp)}°</span></div>
-    <div class="cap" style="margin:8px 0 0">La linea è la temperatura della stanza. Il controllo è per singola unità, ogni ${CFG.controlMinutes || 5} minuti.</div></div>
-  <div class="panel" style="--c:${c}"><div class="t"><b>Impostazioni</b></div>
-    ${passo(1, 'Temperatura target per l\'impianto', m.target, 'mttarget', `Quando la stanza ${verso} a questa temperatura, passa al mantenimento.`)}
-    ${passo(2, 'Imposta temperatura di mantenimento', m.temp, 'mttemp', 'Setpoint scritto sulle unità durante il mantenimento.')}
-    ${passo(3, 'Torna al programma originale quando', m.ritorno, 'mtritorno', `Quando la stanza ${contro} a questa temperatura, le unità tornano a ${t}°.`)}
-    <div class="okr ${err ? 'ko' : ''}">${err || (risc ? `Valori coerenti: mantenimento ${fmt(m.temp)} ≤ ritorno ${fmt(m.ritorno)} < target ${fmt(m.target)}.` : `Valori coerenti: target ${fmt(m.target)} < ritorno ${fmt(m.ritorno)} ≤ mantenimento ${fmt(m.temp)}.`)}</div></div>
-  <div class="panel" style="--c:${c}"><div class="t"><b>Riepilogo</b></div><div class="chs"><span class="chp">${risc ? 'Risc.' : 'Raff.'} ${t}°</span><span class="chp">› a ${fmt(m.target)}° → ${fmt(m.temp)}°</span><span class="chp">› a ${fmt(m.ritorno)}° → ${t}°</span><span class="chp">› poi di nuovo a ${fmt(m.target)}°</span></div></div>`;
+function mantPannello(p, risc, c) {
+  const m = p.mant, off = !!m.spegni, err = mantErrore(p, risc), t = fmt(p.target), verso = risc ? 'sale' : 'scende', contro = risc ? 'scende' : 'sale';   // la stanza va verso il target, poi si allontana fino al ritorno
+  const passo = (n, tit, sub) => `<div class="mps"><span class="mn">${n}</span><div class="mb"><b>${tit}</b><span>${sub}</span></div></div>`;
+  const scelta = (v, ic, l) => `<button class="${off === v ? 'on' : ''}" data-a="mtspegni" data-v="${v}"><span>${I(ic)}</span>${l}</button>`;
+  const freccia = '<span class="mfr">›</span>';
+  return `<div class="lb">Come si comporta</div><div class="panel" style="--c:${c};padding:16px 16px 12px">${mantDiagramma(p, risc)}
+    <div class="chs"><span class="chp c" style="--c:var(--warm)">Programma ${t}°</span><span class="chp">${off ? `${I(IC.power)}Spenta` : `Mantenimento ${fmt(m.temp)}°`}</span></div>
+    <div class="note" style="margin:10px 2px 0">La linea è la temperatura della stanza${off ? '; il tratto a puntini è quando l’unità è spenta' : ''}. Il controllo è per singola unità, ogni ${CFG.controlMinutes || 5} minuti.</div></div>
+  <div class="lb">Impostazioni</div><div class="panel" style="--c:${c}">
+    ${passo(1, 'L\'unità passa al mantenimento a', `Quando la stanza di quell'unità ${verso} a questa temperatura.`)}${bst(m.target, 'mttarget')}
+    ${passo(2, 'Durante il mantenimento l\'unità', `Mantiene una temperatura più ${risc ? 'bassa' : 'alta'} oppure si spegne.`)}
+    <div class="mseg">${scelta(false, IC.termo, 'Mantieni temperatura')}${scelta(true, IC.power, 'Si spegne')}</div>
+    ${off ? `<div class="note" style="margin:8px 2px 0">L’unità si spegne e resta spenta finché la sua stanza non ${contro} alla soglia del punto 3. Le altre unità non cambiano.</div>` : bst(m.temp, 'mttemp')}
+    ${passo(3, 'L\'unità torna al programma a', `Quando la sua stanza ${contro} a questa temperatura, l'unità torna a ${t}°${off ? ' e si riaccende' : ''}.`)}${bst(m.ritorno, 'mtritorno')}
+    <div class="okr ${err ? 'ko' : ''}">${I(err ? IC.warn : IC.check)}<span>${err || (off ? (risc ? `Valori coerenti: ritorno ${fmt(m.ritorno)} < target ${fmt(m.target)}.` : `Valori coerenti: target ${fmt(m.target)} < ritorno ${fmt(m.ritorno)}.`)
+      : (risc ? `Valori coerenti: mantenimento ${fmt(m.temp)} ≤ ritorno ${fmt(m.ritorno)} < target ${fmt(m.target)}.` : `Valori coerenti: target ${fmt(m.target)} < ritorno ${fmt(m.ritorno)} ≤ mantenimento ${fmt(m.temp)}.`))}</span></div></div>
+  <div class="lb">Riepilogo</div><div class="chs" style="--c:${c};align-items:center"><span class="chp c">${risc ? 'Risc.' : 'Raff.'} ${t}°</span>${freccia}<span class="chp">a ${fmt(m.target)}° → ${mantDur(m)}</span>${freccia}<span class="chp">a ${fmt(m.ritorno)}° → ${t}°</span>${freccia}<span class="chp c">poi di nuovo a ${fmt(m.target)}°</span></div>`;
 }
 function vFase() {
   const w = S.wz, p = S.ph, i = SUB.i, c = `var(--c${w.modo})`, nuova = SUB.nuova, risc = w.modo === 5, off = p.tipo === 'off';
@@ -601,7 +641,7 @@ function vFase() {
   <div class="dtr"><label class="fld"><small>Dalle</small>${i === 0 ? `<input type="time" data-m="ph.inizio" value="${p.inizio}">` : `<b style="font-size:18px">${wzInizio(w, i)}</b>`}</label><label class="fld"><small>Fino alle</small><input type="time" data-m="ph.fino" value="${p.fino}"></label></div>
   ${p.fino && minuti(p.fino) <= minuti(wzInizio(w, i) && i > 0 ? wzInizio(w, i) : p.inizio) ? '<div class="note" style="margin-top:0">La fase finisce il giorno dopo. Può attraversare la mezzanotte.</div>' : ''}
   <div class="lb">Oscillazione</div>${oscSeg(!!p.oscillazione, 'phosc')}
-  <div class="lb">Opzionale</div><div class="row" style="--c:${c}"><div><b>Mantieni temperatura</b><span>${p.mant ? `Quando la stanza ${risc ? 'sale' : 'scende'} al target, le unità passano al setpoint di mantenimento. Tornano al programma solo quando la stanza ${risc ? 'scende' : 'sale'} alla soglia di ritorno.` : 'Quando la stanza raggiunge il target, tieni un setpoint di mantenimento per risparmiare'}</span></div><button class="sw ${p.mant ? 'on' : ''}" data-a="phmant"></button></div>
+  <div class="lb">Opzionale</div><div class="row" style="--c:${c}"><div><b>Mantieni temperatura</b><span>${p.mant ? 'Ogni unità segue la sua stanza: quando la stanza arriva al target, quell\'unità passa al mantenimento; le altre restano sul programma.' : 'Quando la stanza raggiunge il target, tieni un setpoint di mantenimento per risparmiare.'}</span></div><button class="sw ${p.mant ? 'on' : ''}" data-a="phmant"></button></div>
   ${p.mant ? mantPannello(p, risc, c) : ''}
   ${nTemp > 1 && !nuova ? `<button class="cta bad" data-a="phdel">Elimina fase</button>` : ''}<div style="height:90px"></div>
   <div class="foot"><button class="cta" style="--c:${c}" data-a="phsalva">Salva fase</button></div>`;
@@ -634,11 +674,11 @@ function vSheet() {
   if (SHEET.k === 'sp') {
     const [lo, hi] = LIM(), cur = SHEET.v, vals = []; for (let x = lo; x <= hi + 1e-9; x += .5) vals.push(x);
     const n = idsFiltro().length, tutte = SHEET.t === 'ptsp';
-    const tit = tutte ? (FILTRO === 'tutti' ? 'Temperatura per tutte le unità' : `Temperatura · ${esc(grp(FILTRO).nome)}`) : `${esc(unita(SHEET.id || S.ud.id).nome)} · temperatura`;
+    const tit = SPK[SHEET.t] ? SPK[SHEET.t].tit : tutte ? (FILTRO === 'tutti' ? 'Temperatura per tutte le unità' : `Temperatura · ${esc(grp(FILTRO).nome)}`) : `${esc(unita(SHEET.id || S.ud.id).nome)} · temperatura`;
     return `<div class="dim" data-a="close"></div><div class="sheet"><div class="grab"></div><div class="sh"><b>${tit}</b><button data-a="close">Annulla</button></div>
     <div class="lim">${I(IC.info || IC.check)} Limiti impianto ${fmt(lo)} – ${fmt(hi)} °C · letti da AC Smart</div>
     <div class="sp">${vals.map(x => `<button class="${cur != null && Math.abs(x - cur) < .01 ? 'on' : ''}" data-a="spval" data-v="${x}">${fmt(x)}°</button>`).join('')}</div>
-    ${tutte ? '' : '<div class="note">Tocca un valore per applicarlo' + (SHEET.t === 'usp' ? ' subito' : '') + '</div>'}</div>`;
+    <div class="shint">${SHEET.t === 'usp' ? 'Tocca un valore per applicarlo subito' : 'Tocca un valore per sceglierlo'}</div></div>`;
   }
   if (SHEET.k === 'modo') {
     const sel = SHEET.sel;
@@ -646,6 +686,19 @@ function vSheet() {
     <div class="opt ${sel ? '' : 'sel'}" data-a="modosel" data-v="0"><div class="ic">${I(IC.eye)}</div><div><b>Sola lettura</b><span>Vedi stato e grafici. Nessun comando parte verso l'impianto.</span></div><span class="rd"></span></div>
     <div class="opt ${sel ? 'sel' : ''}" data-a="modosel" data-v="1"><div class="ic">${I(IC.pen)}</div><div><b>Scrittura attiva</b><span>Puoi accendere, spegnere e cambiare temperatura, modalità e ventola.</span></div><span class="rd"></span></div>
     <button class="cta keep${sel === CFG.scrittura ? ' off' : ''}" style="--c:var(--warm)" data-a="modoapplica">${sel ? 'Attiva scrittura' : 'Passa a sola lettura'}</button></div>`;
+  }
+  if (SHEET.k === 'cambio') {
+    const vec = SC.find(x => x.id === RUN.scenario_id), nuovo = SC.find(x => x.id === SHEET.id); if (!nuovo) return '';
+    const comuni = vec ? vec.unita.filter(u => nuovo.unita.includes(u)).length : 0, spente = vec ? vec.unita.length - comuni : 0;
+    const riga = (s, sub, tag, cls) => `<div class="cbs" style="--c:var(--c${s.modo})"><div class="ic">${I(IC[s.modo])}</div><div><b>${esc(s.nome)}</b><span>${sub}</span></div><span class="chp ${cls}">${tag}</span></div>`;
+    const sotto = RUN.inAttesa ? 'In attesa' : RUN.fase >= 0 ? `In corso · Fase ${RUN.fase + 1} di ${RUN.nFasi}` : 'In corso';
+    const nota = !vec ? '' : spente === 0 ? `Le ${vec.unita.length} unità di “${esc(vec.nome)}” fanno parte anche di “${esc(nuovo.nome)}”: passano subito al nuovo scenario.`
+      : `${spente === 1 ? 'Si spegne 1 unità' : `Si spengono ${spente} unità`} di “${esc(vec.nome)}” che “${esc(nuovo.nome)}” non usa${comuni ? `; le altre ${comuni} passano subito al nuovo scenario` : ''}.`;
+    return `<div class="dim" data-a="close"></div><div class="sheet" role="dialog" aria-modal="true" aria-label="Cambiare scenario?"><div class="grab"></div><div class="sh"><b>Cambiare scenario?</b><button data-a="close">Annulla</button></div>
+    <p>Attualmente è attivo lo scenario <b class="hi">“${esc(RUN.nome || '')}”</b>. Vuoi spegnerlo e attivare <b class="hi">“${esc(nuovo.nome)}”</b>?</p>
+    ${vec ? riga(vec, `${sotto} · ${vec.unita.length} unità`, 'Viene interrotto', 'bad') : ''}<div class="cbs-ar">${I('<path d="M12 5v14M6 13l6 6 6-6"/>')}</div>${riga(nuovo, `${MODI[nuovo.modo]} · ${giorniTxt(nuovo)} · ${nuovo.unita.length} unità`, 'Parte subito', 'c')}
+    ${nota ? `<p style="margin-top:12px">${nota}</p>` : ''}
+    <button class="cta col${W()}" style="--c:var(--c${nuovo.modo});margin-top:14px" data-a="avviaOra" data-id="${nuovo.id}" data-sost="1">Spegni “${esc(RUN.nome || '')}” e avvia</button></div>`;
   }
   const sc = SC.find(x => x.id === RUN.scenario_id), spegni = SHEET.v !== '0', n = sc ? sc.unita.length : 0;
   const opt = (v, ic, t, d) => `<div class="opt ${(spegni ? '1' : '0') === v ? 'sel' : ''}" data-a="stopsel" data-v="${v}"><div class="ic">${I(ic)}</div><div><b>${t}</b><span>${d}</span></div></div>`;
@@ -655,6 +708,13 @@ function vSheet() {
     <button class="cta" style="--c:var(--warm);margin-top:16px" data-a="stop" data-v="${spegni ? '1' : '0'}">Conferma</button></div>`;
 }
 
+// Campi della fase che usano lo stesso foglio di scelta temperatura del controllo unità.
+const SPK = {
+  phtarget: { tit: 'Temperatura target della fase', get: () => S.ph.target, set: (x) => { S.ph.target = x; } },
+  mttarget: { tit: 'Passa al mantenimento a', get: () => S.ph.mant.target, set: (x) => { S.ph.mant.target = x; } },
+  mttemp: { tit: 'Temperatura di mantenimento', get: () => S.ph.mant.temp, set: (x) => { S.ph.mant.temp = x; } },
+  mtritorno: { tit: 'Torna al programma a', get: () => S.ph.mant.ritorno, set: (x) => { S.ph.mant.ritorno = x; } },
+};
 // ===== azioni (delegate)
 const ACT = {
   confNo() { chiudiConf(); },
@@ -670,17 +730,18 @@ const ACT = {
     } catch (e) { toast(e.message, 'err'); }
     render();
   },
-  tab(d) { TAB = d.t; SUB = null; SHEET = null; scrollTo(0, 0); if (TAB === 'grafico') caricaStorico(); if (TAB === 'scenari') caricaRun(); if (TAB === 'altro') { caricaLog(); caricaImp(); } render(); },
+  tab(d) { TAB = d.t; SUB = null; SHEET = null; scrollTo(0, 0); caricaTab(); render(); },
   back() { if (SUB?.k === 'ph') SUB = { k: 'wiz' }; else SUB = null; scrollTo(0, 0); render(); },
   close() { SHEET = null; render(); },
   spsheet(d) {
-    if (!CFG.scrittura && d.k !== 'udsp') return;
-    const v = d.k === 'ptsp' ? S.pt.sp : d.k === 'usp' ? (STATO[d.id] || {}).setpoint : S.ud.sp;
+    const k = SPK[d.k]; if (!k && !CFG.scrittura && d.k !== 'udsp') return;      // i campi della fase si modificano anche in sola lettura
+    const v = k ? k.get() : d.k === 'ptsp' ? S.pt.sp : d.k === 'usp' ? (STATO[d.id] || {}).setpoint : S.ud.sp;
     SHEET = { k: 'sp', t: d.k, id: d.id, v }; render();
   },
   spval(d) {
     const x = clamp(Number(d.v)), t = SHEET.t, id = SHEET.id; SHEET = null;
-    if (t === 'ptsp') { S.pt.sp = x; render(); } else if (t === 'usp') { ctl('unit:' + id, { setpoint: x }); render(); } else { S.ud.sp = x; render(); }
+    if (SPK[t]) SPK[t].set(x); else if (t === 'ptsp') S.pt.sp = x; else if (t === 'usp') ctl('unit:' + id, { setpoint: x }); else S.ud.sp = x;
+    render();
   },
   sheetModo() { SHEET = { k: 'modo', sel: CFG.scrittura }; render(); },
   stopsel(d) { SHEET.v = d.v; render(); },
@@ -741,11 +802,14 @@ const ACT = {
   modifica(d) { nuovoWz(SC.find(s => s.id === Number(d.id))); render(); },
   duplica(d) { nuovoWz(SC.find(s => s.id === Number(d.id)), true); render(); },
   elimina(d) { conferma('Lo scenario viene eliminato definitivamente.', async () => { try { await api('/api/scenari/' + d.id, 'DELETE'); SC = await api('/api/scenari'); SUB = null; render(); } catch (e) { toast(e.message, 'err'); } }, { titolo: 'Eliminare lo scenario?', ok: 'Elimina', pericolo: true }); },
+  // Con un altro scenario attivo si apre il foglio "Cambiare scenario?"; altrimenti una conferma semplice.
   avvia(d) {
-    const sc = SC.find(s => s.id === Number(d.id));
-    conferma(RUN.attivo ? `Si interrompe "${RUN.nome}" e parte "${sc.nome}".` : `Lo scenario "${sc.nome}" parte subito.`, async () => {
-      try { if (RUN.attivo) await api('/api/run/stop', 'POST', { spegni: false }); RUN = await api('/api/run/start', 'POST', { id: sc.id }); toast('Scenario avviato'); aggiorna(); } catch (e) { toast(e.message, 'err'); }
-    }, { titolo: RUN.attivo ? 'Cambiare scenario?' : 'Avviare lo scenario?', ok: 'Avvia' });
+    const sc = SC.find(s => s.id === Number(d.id)); if (!sc) return;
+    if (RUN.attivo) { SHEET = { k: 'cambio', id: sc.id }; return render(); }
+    conferma(`Parte subito e poi si ripete ogni ${giorniTxt(sc)} alle ${sc.fasi[0].inizio}, finché non lo interrompi.`, () => ACT.avviaOra({ id: sc.id }), { titolo: `Avviare “${sc.nome}”?`, ok: 'Avvia' });
+  },
+  async avviaOra(d) {
+    try { RUN = await api('/api/run/start', 'POST', { id: Number(d.id), sostituisci: !!d.sost }); SHEET = null; toast('Scenario avviato'); aggiorna(); } catch (e) { toast(e.message, 'err'); render(); }
   },
   salta(d) { conferma('Lo scenario passa subito alla fase scelta.', async () => { try { RUN = await api('/api/run/salta', 'POST', { fase: Number(d.i) }); toast('Fase cambiata'); render(); } catch (e) { toast(e.message, 'err'); } }, { titolo: 'Saltare alla fase?', ok: 'Salta' }); },
   // ambienti
@@ -796,6 +860,7 @@ const ACT = {
   phmant() { const p = S.ph; p.mant = p.mant ? null : mantIniziale(p.target, S.wz.modo === 5); render(); },
   mttarget(d) { S.ph.mant.target = clamp(S.ph.mant.target + Number(d.d)); render(); },
   mttemp(d) { S.ph.mant.temp = clamp(S.ph.mant.temp + Number(d.d)); render(); },
+  mtspegni(d) { const m = S.ph.mant; if (d.v === 'true') m.spegni = true; else { delete m.spegni; if (m.temp == null) m.temp = mantIniziale(S.ph.target, S.wz.modo === 5).temp; } render(); },
   mtritorno(d) { S.ph.mant.ritorno = clamp(S.ph.mant.ritorno + Number(d.d)); render(); },
   phdel() { eliminaFase(SUB.i, S.ph.nome); },
   wzdel(d) { eliminaFase(Number(d.i), S.wz.fasi[Number(d.i)].nome); },
@@ -817,7 +882,7 @@ const ACT = {
   async wzsalva(d, el) {
     try {
       const w = S.wz, body = wzBody(), r = w.id ? await api('/api/scenari/' + w.id, 'PUT', body) : await api('/api/scenari', 'POST', body), id = w.id || r.id;
-      if (el.dataset.avvia) { if (RUN.attivo) await api('/api/run/stop', 'POST', { spegni: false }); await api('/api/run/start', 'POST', { id }); }
+      if (el.dataset.avvia) await api('/api/run/start', 'POST', { id, sostituisci: RUN.attivo && RUN.scenario_id !== id });
       SC = await api('/api/scenari'); SUB = null; toast('Scenario salvato'); aggiorna();
     } catch (e) { toast(e.message, 'err'); }
   },
@@ -838,8 +903,10 @@ document.addEventListener('input', (e) => { if (e.target.dataset.imp) { IMPD[e.t
 (async () => {
   CFG = await api('/api/config');
   if ('serviceWorker' in navigator && window.isSecureContext) navigator.serviceWorker.register('/sw.js').catch(() => {});
+  const t = (location.hash.match(/^#\/([a-z]+)/) || [])[1]; if (TABS.includes(t)) TAB = t;   // la scheda giusta già dal primo disegno
   await Promise.all([caricaStato(), caricaRun()]);
   try { SC = await api('/api/scenari'); } catch {}
+  applicaRotta(); ROTTE_OK = true; history.replaceState(null, '', rotta()); render();
   // Con l'app aperta: lettura dell'impianto ogni POLL_S secondi (solo se la pagina è visibile).
   const POLL_S = 10;
   setInterval(() => { if (!document.hidden) { caricaStato(true); if (TAB === 'altro') caricaLog(); } }, POLL_S * 1000);

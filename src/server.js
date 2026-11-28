@@ -80,7 +80,7 @@ app.delete('/api/scenari/:id', wrap((req, res) => {
   repoScenari.elimina(req.params.id); res.json({ ok: true });
 }));
 app.get('/api/run', (req, res) => res.json(runner.situazione()));
-app.post('/api/run/start', wrap(async (req, res) => { runner.avvia(Number(req.body.id)); await runner.controlla(); res.json(runner.situazione()); }));
+app.post('/api/run/start', wrap(async (req, res) => { await runner.avvia(Number(req.body.id), { sostituisci: !!req.body.sostituisci }); await runner.controlla(); res.json(runner.situazione()); }));
 app.post('/api/run/stop', wrap(async (req, res) => { await runner.ferma({ spegni: !!req.body.spegni }); poller.leggi(false).catch(() => {}); res.json(runner.situazione()); }));
 app.post('/api/run/salta', wrap(async (req, res) => { await runner.salta(Number(req.body.fase)); res.json(runner.situazione()); }));
 

@@ -1,7 +1,9 @@
-# Note per il codice · Scenari (da rivedere)
+# Note per il codice · Scenari
+
+> Questo file è il **riferimento unico** per la logica degli scenari. Le note sui canvas di Claude Design possono essere superate: in caso di differenza vale questo file.
 
 ## Motore scenari (server)
-Uno scenario parte **solo quando lo si avvia** ("Avvia ora" o ▶ nella lista; gli scenari salvati non partono da soli). Da lì resta attivo e si ripete nei suoi giorni finché non lo si interrompe. "Avvia ora" fuori dai giorni o prima dell'ora di inizio parte subito dalla prima fase. Un solo scenario attivo alla volta: avviarne un altro apre il pannello "Cambiare scenario?", che con un tocco interrompe quello in corso, spegne le sue unità che il nuovo non usa (le altre passano subito al nuovo) e avvia il nuovo. Quando c'è uno scenario attivo il server esegue un ciclo di controllo ogni 5 minuti: legge le unità via BACnet, confronta con la fase corrente e scrive solo ciò che serve. Ogni lettura finisce nel registro. In sola lettura gli scenari sono solo consultabili e il motore resta in pausa; anche la ripartenza nei giorni previsti (orologio del server) avviene solo a scrittura attiva.
+Uno scenario parte **solo quando lo si avvia** ("Avvia ora" o ▶ nella lista; gli scenari salvati non partono da soli). Da lì resta attivo e si ripete nei suoi giorni finché non lo si interrompe. "Avvia ora" fuori dai giorni o prima dell'ora di inizio parte subito dalla prima fase. Un solo scenario attivo alla volta: avviarne un altro apre il pannello "Cambiare scenario?", che con un tocco interrompe quello in corso, spegne le sue unità che il nuovo non usa (le altre passano subito al nuovo) e avvia il nuovo. Quando c'è uno scenario attivo il server esegue un ciclo di controllo ogni 5 minuti: legge le unità via BACnet, confronta con la fase corrente e scrive solo ciò che serve. Ogni lettura finisce nel registro. **Avvio**: lo scenario risulta avviato solo se il primo comando va a buon fine; se l'impianto non risponde o rifiuta tutti i comandi l'app mostra subito "Scenario non avviato" e non resta attivo nulla (si può riprovare). Se falliscono solo alcuni comandi parte con un avviso e riprova al ciclo successivo. "Salva e avvia" nell'editor salva sempre lo scenario: se poi l'avvio fallisce si torna alla lista con l'errore, senza creare doppioni al nuovo tentativo. In sola lettura gli scenari sono solo consultabili e il motore resta in pausa; anche la ripartenza nei giorni previsti (orologio del server) avviene solo a scrittura attiva.
 
 ## Fasi a orario
 Ogni fase ha: nome, temperatura target, 'fino a' (ora) e, a scelta, oscillazione lamelle; la modalità dello scenario è Raff., Risc., Vent. o Deum.; ogni fase può inoltre essere solo Vent. o solo Deum. (nome e orari, nessuna temperatura: le unità si accendono in quella modalità) oppure Spento.
@@ -27,7 +29,7 @@ Coerenza (validata da app e server): riscaldamento mantenimento ≤ ritorno < ta
 Scelta per ambiente (lista a scorrimento) oppure per singole unità; salvata come elenco di unità (id) più nome gruppo. Il conteggio unità nelle card è calcolato, non salvato.
 
 ## Home scenari / dettaglio
-Home: scenario in corso (nome, fase X di Y, giorni, n. unità, n. unità in mantenimento, barra avanzamento fino alla fine fase), altri scenari con tasto ▶ (avvia dopo conferma; se uno è già attivo apre "Cambiare scenario?"), 'Nuovo scenario'. Dettaglio di uno scenario fermo: riquadro "Non avviato" e 'Avvia ora'. Dettaglio di uno avviato: timeline fasi, stato per unità (in salita / a target / in mantenimento), 'Salta alla fase', 'Modifica', 'Ferma'. 'Ferma' chiede "Vuoi spegnere l'impianto?": spegni tutto (le unità dello scenario) oppure lascia così (restano come sono); in entrambi i casi lo scenario si interrompe subito.
+Home: scenario in corso (nome, fase X di Y, giorni, n. unità, n. unità in mantenimento, barra avanzamento fino alla fine fase), altri scenari con tasto ▶ (avvia dopo conferma; se uno è già attivo apre "Cambiare scenario?"), 'Nuovo scenario'. Dettaglio di uno scenario fermo: riquadro "Non avviato" e 'Avvia ora'. Dettaglio di uno avviato: timeline fasi, stato per unità (in salita / a target / in mantenimento), 'Salta alla fase', 'Modifica', 'Ferma'. 'Ferma' chiede "Vuoi spegnere l'impianto?": spegni tutto (le unità dello scenario) oppure lascia così (restano come sono); in entrambi i casi lo scenario si interrompe subito, anche se l'impianto non risponde (in quel caso compare un avviso: le unità potrebbero essere ancora accese).
 
 ## Dati / persistenza
 Tabella scenari (nome, modalità, giorni, unità), fasi come JSON dentro lo scenario (tipo, nome, target, fino, mant:{target,temp,ritorno} oppure {target,spegni:true,ritorno}, oscillazione), tabella stato run (scenario, fase corrente, unità in mantenimento, ultimo controllo). Lo stato run sopravvive al riavvio del server: al riavvio riprende dal ciclo successivo.
@@ -36,7 +38,7 @@ Tabella scenari (nome, modalità, giorni, unità), fasi come JSON dentro lo scen
 In prova sulla home scura: data e ora lette dall'impianto (non dal telefono), con pallino verde se l'ultima lettura è recente. Se la lettura è più vecchia di 10 min il pallino diventa ambra/rosso.
 
 ## Registro
-- Conserva solo gli ultimi 30 giorni (potatura all'avvio e ogni 6 ore, indice su `ts`).
+- Conserva gli ultimi 3 mesi, come lo storico delle letture (potatura all'avvio e ogni 6 ore, indice su `ts`).
 - `/api/log` è paginato a cursore (`?before=<id>&limit=30&q=<testo>`); in "Altro" scorre in una finestra propria, 30 voci per volta.
 - I comandi sono scritti in modo leggibile ("Camera 1: spenta", "Cucina: setpoint 19 → 21 °C").
 

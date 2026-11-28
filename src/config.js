@@ -2,8 +2,9 @@ const fs = require('fs'), path = require('path');
 const env = process.env;
 
 // File di configurazione dell'impianto (config/<nome>.json). Non stanno nel repository: si creano con `npm run setup`.
+// CONFIG_ESEMPIO=on usa i file *.example.json (test e CI, dove i file dell'impianto non ci sono).
 function leggiFile(nome) {
-  const f = path.join(__dirname, '..', 'config', nome + '.json');
+  const f = path.join(__dirname, '..', 'config', nome + (env.CONFIG_ESEMPIO === 'on' ? '.example' : '') + '.json');
   if (!fs.existsSync(f)) throw new Error(`manca config/${nome}.json: esegui "npm run setup" e adattalo al tuo impianto`);
   return JSON.parse(fs.readFileSync(f, 'utf8'));
 }

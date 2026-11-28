@@ -3,7 +3,9 @@ const cfg = require('./config');
 const mode = require('./mode');
 const { risolvi, byId } = require('./units');
 const { addLog } = require('./db');
-const { comandi: diff } = require('./engine/logic');
+const { impianto } = require('./errori');
+const { comandi: diff, limita } = require('./engine/logic');
+const nomi = require('./engine/nomi');
 
 // Costruisce il piano di comandi per unità: le azioni successive sovrascrivono le precedenti
 function pianifica(azioni) {
@@ -21,7 +23,6 @@ function pianifica(azioni) {
   return per;
 }
 
-const limita = (t) => Math.round(Math.min(cfg.setpoint.max, Math.max(cfg.setpoint.min, t)) * 2) / 2;
 
 // Piano desiderato → lista dei soli comandi necessari, confrontando con lo stato letto.
 function daPiano(piano, stato, accendiInRiscaldamento) {
@@ -29,7 +30,7 @@ function daPiano(piano, stato, accendiInRiscaldamento) {
   for (const [u, c] of Object.entries(piano)) {
     const s = stato[u]; if (!s) continue;
     const voluto = { ...c };
-    if (voluto.setpoint !== undefined) voluto.setpoint = limita(voluto.setpoint);
+    if (voluto.setpoint !== undefined) voluto.setpoint = limita(voluto.setpoint, cfg.setpoint);
     if (accendiInRiscaldamento && c.power === 'on' && voluto.modo === undefined && !s.modo) voluto.modo = 5;   // accendendo si riparte dall'ultima modalità; riscaldamento solo se sconosciuta
     out.push(...diff(u, s, voluto));
     if (voluto.oscillazione !== undefined && !!s.oscillazione !== voluto.oscillazione) out.push({ unita: u, cosa: 'oscillazione', da: !!s.oscillazione, a: voluto.oscillazione });
@@ -38,16 +39,14 @@ function daPiano(piano, stato, accendiInRiscaldamento) {
   return out;
 }
 
-const MODI = { 1: 'Raffrescamento', 2: 'Deumidificazione', 3: 'Ventilazione', 4: 'Auto', 5: 'Riscaldamento' };
-const VENT = { 1: 'bassa', 2: 'media', 3: 'alta', 4: 'auto' };
 // Frase leggibile per un comando, es. "Camera 1: spenta" / "Cucina: setpoint 20 → 21 °C".
 function frase(c) {
   const u = byId[c.unita]?.nome || c.unita;
   const f = {
     power: c.a === 'on' ? 'accesa' : 'spenta',
     setpoint: `setpoint ${c.da ?? '?'} → ${c.a} °C`,
-    modo: `modalità ${MODI[c.a] || c.a}`,
-    ventola: `ventola ${VENT[c.a] || c.a}`,
+    modo: `modalità ${nomi.modi[c.a] || c.a}`,
+    ventola: `ventola ${(nomi.ventola[c.a] || String(c.a)).toLowerCase()}`,
     oscillazione: c.a ? 'oscillazione attiva' : 'oscillazione ferma',
   }[c.cosa];
   return `${u}: ${f}`;
@@ -67,7 +66,6 @@ async function invia(comandi, etichetta) {
       esiti.push({ ...c, ok: true });
     } catch (e) { esiti.push({ ...c, ok: false, errore: e.message }); }
   }
-  const ko = esiti.filter(e => !e.ok).length;
   if (!esiti.length) addLog('comando', `${etichetta}: nessuna modifica, l'impianto è già così`);
   else {
     const ok = esiti.filter(e => e.ok).map(frase), ng = esiti.filter(e => !e.ok).map(e => `${frase(e)} (fallito: ${e.errore})`);
@@ -79,7 +77,12 @@ async function invia(comandi, etichetta) {
 }
 
 async function esegui(azioni, etichetta = 'comando') {
-  return invia(daPiano(pianifica(azioni), await bac.leggiStato(), true), etichetta);
+  const piano = pianifica(azioni);
+  mode.richiedi();
+  let stato;
+  try { stato = await bac.leggiStato(); }
+  catch (e) { addLog('errore', `${etichetta}: impianto non raggiungibile — ${e.message}`); throw impianto('L\'impianto non risponde: comando non inviato. Riprova tra poco'); }
+  return invia(daPiano(piano, stato, true), etichetta);
 }
 // Per il motore scenari: piano per unità già calcolato, stato già letto (niente doppia lettura).
 const eseguiPiano = (piano, stato, etichetta) => invia(daPiano(piano, stato, false), etichetta);

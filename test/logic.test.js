@@ -81,7 +81,7 @@ test('valida: errori e normalizzazione', () => {
   const ok = { nome: 'X', modo: 5, giorni: [5, 6], unita: ['11'], fasi: [{ tipo: 'temp', inizio: '08:00', fino: '22:00', target: 20 }, { tipo: 'off' }] };
   assert.equal(L.valida(ok, note).fasi.length, 2);
   assert.throws(() => L.valida({ ...ok, giorni: [] }, note), /giorno/);
-  assert.throws(() => L.valida({ ...ok, unita: ['99'] }, note), /sconosciuta/);
+  assert.throws(() => L.valida({ ...ok, unita: ['99'] }, note), /non fa parte/);
   assert.throws(() => L.valida({ ...ok, fasi: [{ tipo: 'off' }] }, note), /prima fase/);
   assert.throws(() => L.valida({ ...ok, fasi: [{ ...ok.fasi[0], target: 30 }] }, note), /16–26/);
   const mant = (m, modo = 5, t = 20) => L.valida({ ...ok, modo, fasi: [{ ...ok.fasi[0], target: t, mant: m }, ok.fasi[1]] }, note);

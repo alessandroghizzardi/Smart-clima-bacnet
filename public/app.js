@@ -1,14 +1,14 @@
 'use strict';
 // ===== Smart Clima — front-end (HTML+JS semplice, nessuna build). Le viste sono funzioni che ritornano HTML.
 const $ = (s, r = document) => r.querySelector(s);
-const MODI_LUNGO = { 1: 'Raffrescamento', 2: 'Deumidificazione', 3: 'Ventilazione', 4: 'Auto', 5: 'Riscaldamento' };
-const MODI = { 1: 'Raff.', 2: 'Deum.', 3: 'Vent.', 4: 'Auto', 5: 'Risc.' }, ORDINE_MODI = [1, 5, 3, 2, 4];
-const VENT = { 1: 'Min', 2: 'Med', 3: 'Max', 4: 'Auto' };
+// Nomi di modalità e ventola: arrivano dal server con /api/config (src/engine/nomi.js), vedi usaNomi().
+let MODI_LUNGO = {}, MODI = {}, ORDINE_MODI = [], VENT = {}, NO_T = {}, TIPO_MODO = {};
+const usaNomi = (n) => { MODI_LUNGO = n.modi; MODI = n.modiBrevi; ORDINE_MODI = n.ordineModi; VENT = n.ventolaBrevi; NO_T = n.senzaTemp; TIPO_MODO = n.TIPO_MODO; };
 const GG = ['Dom', 'Lun', 'Mar', 'Mer', 'Gio', 'Ven', 'Sab'], GG_ORD = [1, 2, 3, 4, 5, 6, 0], GG_L = ['D', 'L', 'M', 'M', 'G', 'V', 'S'];
 const MES = ['gen', 'feb', 'mar', 'apr', 'mag', 'giu', 'lug', 'ago', 'set', 'ott', 'nov', 'dic'];
 const COL = ['#e0824f', '#5aa9d6', '#7fc27a', '#a597e0', '#f0dc7a', '#4fc3b5', '#d4604a', '#9aa7b4'];
 
-let CFG, STATO = {}, ORA = null, TS = null, ERR = null, RUN = { attivo: false }, SC = [], LOG = [];
+let CFG, STATO = {}, ORA = null, TS = null, ERR = null, CONN = null, ERRORI = [], ERR_TUTTI = false, RUN = { attivo: false }, SC = [], LOG = [];
 let TAB = 'stato', SUB = null, SHEET = null, FILTRO = 'tutti', chart = null;
 const S = { pt: { pw: null, sp: null, modo: null, vent: null, osc: null }, ud: null, wz: null, ph: null, am: null,
   g: { range: '7', sel: ['all'], altre: false, hist: null, applied: false }, dt: { f: null, t: null, m: null } };
@@ -27,16 +27,19 @@ const IC = {
   back: '<path d="M15 5l-7 7 7 7"/>', plus: '<path d="M12 5v14M5 12h14"/>', minus: '<path d="M5 12h14"/>', check: '<path d="M5 12.5l4.5 4.5L19 7.5"/>',
   grip: '<path d="M9 7h.01M15 7h.01M9 12h.01M15 12h.01M9 17h.01M15 17h.01" stroke-width="3.2"/>', edit: '<path d="M4 20h4L19 9l-4-4L4 16z"/>', trash: '<path d="M4 7h16M10 11v6M14 11v6M6 7l1 12a2 2 0 002 2h6a2 2 0 002-2l1-12M9 7V4h6v3"/>', copy: '<rect x="8" y="8" width="12" height="12" rx="2.5"/><path d="M16 8V6.5A2.5 2.5 0 0013.5 4h-7A2.5 2.5 0 004 6.5v7A2.5 2.5 0 006.5 16H8"/>', stop: '<circle cx="12" cy="12" r="9.5" stroke-width="2.6"/><rect x="8.3" y="8.3" width="7.4" height="7.4" rx="2" fill="currentColor" stroke="none"/>', play: '<path d="M7 4l13 8-13 8z"/>',
   eye: '<path d="M2 12s4-7 10-7 10 7 10 7-4 7-10 7S2 12 2 12z"/><circle cx="12" cy="12" r="3"/>', pen: '<path d="M4 20l1-4L16 5l3 3L8 19z"/>',
-  warn: '<path d="M12 3l10 18H2z"/><path d="M12 10v5M12 18v.5"/>', right: '<path d="M9 5l7 7-7 7"/>', left: '<path d="M15 5l-7 7 7 7"/>',
+  warn: '<path d="M12 3l10 18H2z"/><path d="M12 10v5M12 18v.5"/>', err: '<circle cx="12" cy="12" r="9"/><path d="M12 7v6M12 16.8v.01"/>', close: '<path d="M6 6l12 12M18 6L6 18"/>', right: '<path d="M9 5l7 7-7 7"/>', left: '<path d="M15 5l-7 7 7 7"/>',
   osc: '<path d="M7 5l-4 4 4 4M17 11l4 4-4 4M3 9h13M21 15H8"/>', fermo: '<path d="M5 12h14"/>',
   tStato: '<path d="M4 11l8-7 8 7v9H4z"/>', tGraf: '<path d="M3 17l5-6 4 3 8-9"/>', tScen: '<rect x="4" y="5" width="16" height="15" rx="3"/><path d="M4 10h16M9 3v4M15 3v4"/>', tAmb: '<path d="M3 11l9-7 9 7"/><path d="M5 10v10h14V10M10 20v-6h4v6"/>', tAltro: '<circle cx="6" cy="12" r="1.5"/><circle cx="12" cy="12" r="1.5"/><circle cx="18" cy="12" r="1.5"/>',
 };
-const ic = (k, s) => `<span style="display:inline-flex;${s ? `width:${s}px;height:${s}px` : ''}">${I(IC[k])}</span>`;
-
 // ---- utilità
+const NO_SERVER = 'Connessione al server non riuscita: controlla la rete e riprova';
 const api = async (url, method = 'GET', body) => {
-  const r = await fetch(url, { method, headers: body ? { 'Content-Type': 'application/json' } : {}, body: body ? JSON.stringify(body) : undefined });
-  const j = await r.json().catch(() => ({})); if (!r.ok) throw new Error(j.errore || r.statusText); return j;
+  let r;
+  try { r = await fetch(url, { method, headers: body ? { 'Content-Type': 'application/json' } : {}, body: body ? JSON.stringify(body) : undefined }); }
+  catch { throw Object.assign(new Error(NO_SERVER), { rete: true }); }            // «Failed to fetch» non va a schermo
+  const j = await r.json().catch(() => ({}));
+  if (!r.ok) throw new Error(j.errore || `Il server ha risposto con un errore (${r.status}): riprova`);
+  return j;
 };
 const esc = (s) => String(s ?? '').replace(/[&<>"]/g, c => ({ '&': '&amp;', '<': '&lt;', '>': '&gt;', '"': '&quot;' }[c]));
 const fmt = (n, d = 1) => n == null || Number.isNaN(n) ? '–' : Number(n).toFixed(d).replace('.', ',');
@@ -48,11 +51,11 @@ const unita = (id) => CFG.unita.find(u => u.id === id) || { id, nome: id };
 const grp = (id) => CFG.gruppi.find(g => g.id === id);
 const gruppiVisibili = () => CFG.gruppi;
 // Banner di notifica a fascia dall'alto: tipo 'ok' | 'err' | 'warn', titolo + dettaglio opzionale.
-const TOAST_IC = { ok: '<path d="M5 12.5l4.5 4.5L19 7.5"/>', err: '<circle cx="12" cy="12" r="9"/><path d="M12 7v6M12 16.8v.01"/>', warn: '<path d="M12 4l9 16H3z"/><path d="M12 10v4M12 17v.01"/>' };
+const TOAST_IC = { ok: 'check', err: 'err', warn: 'warn' };
 function toast(t, tipo = 'ok', d = '') {
   const e = $('#toast'), ms = tipo === 'ok' ? 5000 : 9000;
   e.className = 't-' + tipo; e.style.setProperty('--dur', ms + 'ms');
-  e.innerHTML = `<div class="ti"><svg width="19" height="19" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.6" stroke-linecap="round" stroke-linejoin="round">${TOAST_IC[tipo]}</svg></div><div class="tx"><b>${esc(t)}</b>${d ? `<span>${esc(d)}</span>` : ''}</div><div class="tclose"><svg width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.2" stroke-linecap="round"><path d="M6 6l12 12M18 6L6 18"/></svg></div><div class="tbar"><i></i></div>`;
+  e.innerHTML = `<div class="ti">${I(IC[TOAST_IC[tipo]])}</div><div class="tx"><b>${esc(t)}</b>${d ? `<span>${esc(d)}</span>` : ''}</div><div class="tclose">${I(IC.close)}</div><div class="tbar"><i></i></div>`;
   e.style.display = 'flex'; void e.offsetWidth; e.classList.add('show');
   clearTimeout(toast.t); toast.t = setTimeout(chiudiToast, ms);
 }
@@ -77,7 +80,7 @@ async function ctl(target, f, ok) {
   try {
     const r = await api('/api/control', 'POST', { target, ...f });
     const n = (r.comandi || []).length, ko = (r.comandi || []).filter(c => !c.ok).length;
-    const c0 = (r.comandi || [])[0], nome = id && CFG.unita.find(u => u.id === id)?.nome;
+    const nome = id && CFG.unita.find(u => u.id === id)?.nome;
     if (ko) toast('Comando non riuscito', 'err', (r.comandi.find(c => !c.ok) || {}).errore || 'L\'impianto non ha risposto');
     else if (!n) toast('Già così', 'warn', 'Nessuna modifica da inviare');
     else toast(ok || 'Comando inviato', 'ok', n === 1 && nome ? nome : `${n} modifiche inviate`);
@@ -118,10 +121,12 @@ async function caricaStato(live) {
   try {
     const s = await api('/api/state' + (live === true ? '?live=1' : ''));
     STATO = applicaAttese(s.stato || {}); ORA = s.ora; TS = s.ts; ERR = s.errore || null; CFG.scrittura = s.scrittura;
-  } catch (e) { ERR = e.message; }
+    CONN = s.connessione || null; ERRORI = s.erroriRecenti || []; if (!ERR) ERR_TUTTI = false;
+  } catch (e) { ERR = e.message; CONN = null; }   // server irraggiungibile: restano gli ultimi valori ricevuti
   rerender();
 }
 async function caricaRun() {
+  if (document.hidden) return;                        // a pagina nascosta non serve: si ricarica al ritorno (visibilitychange)
   try { RUN = await api('/api/run'); } catch { RUN = { attivo: false }; }
   if (TAB === 'scenari' || SUB?.k === 'scd') { try { SC = await api('/api/scenari'); } catch {} }
   rerender();
@@ -207,7 +212,9 @@ function render() {
   hdr(); navBar();
   let h;
   if (SUB) h = { unit: vUnit, scd: vScd, wiz: vWiz, ph: vFase, amb: vAmb }[SUB.k](); else h = { stato: vStato, grafico: vGrafico, scenari: vScenari, ambienti: vAmbienti, altro: vAltro }[TAB]();
+  const box = chart?.canvas?.parentNode;          // contenitore del grafico esistente: si rimette al suo posto invece di ricrearlo
   $('#v').innerHTML = h;
+  const nuovo = $('#v .chart'); if (box && nuovo) nuovo.replaceWith(box);
   $('#ov').innerHTML = SHEET ? vSheet() : '';
   if (!SUB && TAB === 'grafico') disegna();
 }
@@ -223,19 +230,53 @@ const oscSeg = (cur, act) => `<div class="seg">${[[false, 'Ferma'], [true, 'Su�
 
 // ===== STATO
 const idsFiltro = () => FILTRO === 'tutti' ? CFG.unita.map(u => u.id) : (grp(FILTRO)?.unita || []);
+// L'ambiente scelto come filtro può essere stato eliminato (da un altro telefono): si torna a «Tutte».
+function filtroValido() {
+  if (FILTRO === 'tutti' || grp(FILTRO)) return true;
+  FILTRO = 'tutti'; toast('Ambiente non più disponibile', 'err', 'È stato eliminato: ora vedi tutte le unità'); return false;
+}
+const segFiltro = () => `<div class="segw"><div class="seg x">${[['tutti', 'Tutte'], ...gruppiVisibili().map(g => [g.id, g.nome])].map(([k, l]) => `<button class="${FILTRO === k ? 'on' : ''}" data-a="filtro" data-v="${k}">${esc(l)}</button>`).join('')}</div></div>`;
+const giornoTxt = (ts) => { const d = new Date(ts); return `${GG[d.getDay()]} ${d.getDate()} ${MES[d.getMonth()]}`; };
+const mediaTemp = () => { const t = CFG.unita.map(u => STATO[u.id]?.temp).filter(v => v != null); return t.length ? t.reduce((a, b) => a + b, 0) / t.length : null; };
+const saluto = () => { const h = ORA ? Number(ORA.ora.slice(0, 2)) : 12; return h < 12 ? 'Buongiorno' : h < 18 ? 'Buon pomeriggio' : 'Buonasera'; };
+const bigTemp = (avg) => avg != null ? `<b>${fmt(avg)}<sup>°</sup></b>` : '<b>–</b>';   // come nel design: «13,9°», decimale grande
+const durata = (ms) => { const m = Math.max(0, Math.round(ms / 60000)); return m < 60 ? `${m} min` : `${Math.floor(m / 60)} h ${pad(m % 60)}`; };
+
+// Stato con l'impianto (o il server) che non risponde: ultimi valori noti in sola lettura, storico della connessione e ultimi errori.
+function vStatoOffline() {
+  const ora = Date.now(), c = CONN, ko = c?.koDa || TS, avg = mediaTemp(), ids = idsFiltro();
+  const tag = (l) => l.tipo === 'errore' ? '<span class="k a">Errore</span>' : '<span class="k w">Avviso</span>';
+  const errori = ERR_TUTTI ? ERRORI : ERRORI.slice(0, 6), altri = ERRORI.length - errori.length;
+  let conn = '';
+  if (c) {
+    const fine = c.da + c.slot.length * c.slotMinuti * 60e3, pos = TS ? (TS - c.da) / (fine - c.da) * 100 : -1;
+    conn = `<div class="panel" style="margin-bottom:4px"><div class="cn"><div><b>Connessione</b></div>${ko ? `<span class="pill"><i></i>KO da ${durata(ora - ko)}</span>` : ''}</div>
+      <div class="cnb">${c.slot.map(x => `<i class="${x === 'ko' ? 'k' : x ? '' : 'n'}"></i>`).join('')}</div>
+      <div class="cnx"><span>${hm(c.da)}</span>${pos > 15 && pos < 85 ? `<span style="left:${pos}%;transform:translateX(-50%)">${hm(TS)}</span>` : ''}<span style="right:0">${hm(ora)}</span></div></div>`;
+  } else conn = `<div class="panel"><div class="cn"><div><b>Server non raggiungibile</b><span>${esc(ERR)}</span></div></div></div>`;
+  return `<div class="hero ko"><div class="l"><span>${saluto()}</span><span class="badge"><i></i>Offline</span></div>
+    <h2>Nessuna comunicazione</h2><div class="big"><div>${bigTemp(avg)}</div><small>${TS ? `ultimo valore noto<br>${hm(TS)} · ${giornoTxt(TS)}` : 'nessun valore<br>ricevuto'}</small></div>
+    <div class="stat"><div><b>${ko ? durata(ora - ko) : '–'}</b><span>senza risposta</span></div><div><b>${c ? c.fallite : '–'}</b><span>tentativi falliti</span></div></div></div>
+  <div class="quick"><button class="q graf" data-a="live">${I(IC.refresh)}Aggiorna ora</button></div>
+  ${conn}
+  ${ERRORI.length ? `<div class="lb lbr"><span>Ultimi errori</span><button data-a="tab" data-t="altro">Registro</button></div>
+  <div class="panel" style="padding:6px 14px">${errori.map(l => `<div class="lg"><time>${hm(l.ts)}</time>${tag(l)}<p>${esc(l.testo)}</p></div>`).join('')}
+    ${altri > 0 ? `<button class="piu" data-a="errtutti">Mostra altri ${altri}</button>` : ''}</div>` : ''}
+  <div class="lb">${TS ? `Unità · valori delle ${hm(TS)}` : 'Unità'}</div>
+  <div class="offdim">${segFiltro()}<div class="list">${ids.map(id => cardUnita(unita(id), STATO[id] || {}, true)).join('')}</div></div>`;
+}
 function vStato() {
-  const all = CFG.unita.map(u => STATO[u.id]).filter(Boolean), t = all.map(s => s.temp).filter(v => v != null);
-  const on = all.filter(s => s.acceso).length, avg = t.length ? t.reduce((a, b) => a + b, 0) / t.length : null;
-  
-  const h = ORA ? Number(ORA.ora.slice(0, 2)) : 12, saluto = h < 12 ? 'Buongiorno' : h < 18 ? 'Buon pomeriggio' : 'Buonasera';
+  filtroValido();
+  if (ERR) return vStatoOffline();
+  const all = CFG.unita.map(u => STATO[u.id]).filter(Boolean), on = all.filter(s => s.acceso).length, avg = mediaTemp();
   const titolo = on === 0 ? 'La casa è spenta' : avg != null && avg < 17 ? 'La casa è fredda' : avg != null && avg < 21 ? 'La casa si sta scaldando' : 'La casa è in temperatura';
   const ids = idsFiltro(), nome = FILTRO === 'tutti' ? 'Tutte' : grp(FILTRO).nome, PT = S.pt;
-  return `<div class="hero"><div class="l"><span>${saluto}</span><button class="badge ${CFG.scrittura ? '' : 'w'}" data-a="sheetModo"><i></i>${CFG.scrittura ? 'Scrittura attiva' : 'Sola lettura'}</button></div>
-    <h2>${titolo}</h2><div class="big"><div><b>${avg != null ? fmt(avg).split(',')[0] : '–'}</b><sup>${avg != null ? ',' + fmt(avg).split(',')[1] + '°' : ''}</sup></div><small>media interna<br>${TS ? 'aggiornato ' + hm(TS) : 'in attesa lettura'}</small></div>
+  return `<div class="hero"><div class="l"><span>${saluto()}</span><button class="badge ${CFG.scrittura ? '' : 'w'}" data-a="sheetModo"><i></i>${CFG.scrittura ? 'Scrittura attiva' : 'Sola lettura'}</button></div>
+    <h2>${titolo}</h2><div class="big"><div>${bigTemp(avg)}</div><small>media interna<br>${TS ? 'aggiornato ' + hm(TS) : 'in attesa lettura'}</small></div>
     <div class="stat"><div><b>${on} / ${CFG.unita.length}</b><span>unità accese</span></div><div><b>${all.filter(s => s.allarme).length}</b><span>allarmi</span></div></div></div>
-  ${schedaScenario()}
+  ${schedaRun(false)}
   <div class="quick"><button class="q" data-a="live">${I(IC.refresh)}Aggiorna ora</button></div>
-  <div class="segw"><div class="seg x">${[['tutti', 'Tutte'], ...gruppiVisibili().map(g => [g.id, g.nome])].map(([k, l]) => `<button class="${FILTRO === k ? 'on' : ''}" data-a="filtro" data-v="${k}">${esc(l)}</button>`).join('')}</div></div>
+  ${segFiltro()}
   ${!CFG.scrittura ? '' : `<div class="panel"><div class="t"><b>Modifica</b><span class="chip">${esc(nome)} · ${ids.length} unità</span></div>
     <div class="prow${W()}"><div class="pp">${[['on', 'Accendi'], ['off', 'Spegni']].map(([k, l]) => `<button class="${PT.pw === k ? 'on' : ''}" data-a="ptpw" data-v="${k}">${k === 'on' ? I(IC.power) : ''}${l}</button>`).join('')}</div>${stepSp(PT.sp, 'ptsp')}</div>
     <div class="lbl">Modalità</div><div class="${W()}">${modiGrid(PT.modo, 'ptmodo')}</div>
@@ -251,13 +292,14 @@ const ringP = (s) => {
   const manca = s.modo === 5 ? s.setpoint - s.temp : s.temp - s.setpoint;
   return Math.round(Math.max(0, Math.min(1, 1 - manca / RING_SPAN)) * 100);
 };
-function cardUnita(u, s) {
-  const c = s.acceso ? `var(--c${s.modo || 5})` : 'var(--muted)', p = ringP(s);
-  return `<div class="u ${s.acceso ? 'on' : ''}" style="--c:${c}"><div class="rw"><div class="ring" style="--p:${p}"><div>${fmt(s.temp)}</div></div>${s.acceso ? `<span class="rb">${I(IC[s.modo || 5])}</span>` : ''}</div>
-    <div class="m" data-a="unit" data-id="${u.id}"><b>${esc(u.nome)}</b><span>Gruppo ${u.id}${s.allarme ? ' · ⚠ allarme' : ''}</span>
+// ro: card di sola consultazione (impianto offline): niente comandi né dettaglio, solo l'ultimo setpoint letto.
+function cardUnita(u, s, ro = false) {
+  const c = s.acceso ? `var(--c${s.modo || 5})` : 'var(--muted)', p = ringP(s), cmd = CFG.scrittura && !ro;
+  return `<div class="u ${s.acceso ? 'on' : ''}${ro ? ' ro' : ''}" style="--c:${c}"><div class="rw"><div class="ring" style="--p:${p}"><div>${fmt(s.temp)}</div></div>${s.acceso || (ro && s.modo) ? `<span class="rb">${I(IC[s.modo || 5])}</span>` : ''}</div>
+    <div class="m"${ro ? '' : ` data-a="unit" data-id="${u.id}"`}><b>${esc(u.nome)}</b><span>Gruppo ${u.id}${s.allarme ? ' · ⚠ allarme' : ''}</span>
       <div class="mi">${s.acceso ? `<span class="mf">${MODI[s.modo] || ''}</span><span class="mf">${bars(s.ventola)} ${VENT[s.ventola] || ''}</span>` : `<span class="mf">Spento</span>${s.modo ? `<span class="mf">${MODI[s.modo] || ''}</span><span class="mf">${bars(s.ventola)} ${VENT[s.ventola] || ''}</span>` : ''}`}</div>
-      ${CFG.scrittura ? stepSp(s.setpoint, 'usp', `data-id="${u.id}"`) : (s.acceso ? `<span class="mf">Setpoint ${fmt(s.setpoint)} °C</span>` : '')}</div>
-    ${CFG.scrittura ? `<button class="pwb ${s.acceso ? 'on' : ''}" data-a="upw" data-id="${u.id}">${I(IC.power)}</button>` : ''}</div>`;
+      ${cmd ? stepSp(s.setpoint, 'usp', `data-id="${u.id}"`) : ro ? (s.setpoint != null ? `<div class="spro">Setpoint ${fmt(s.setpoint)} °C</div>` : '') : (s.acceso ? `<span class="mf">Setpoint ${fmt(s.setpoint)} °C</span>` : '')}</div>
+    ${cmd ? `<button class="pwb ${s.acceso ? 'on' : ''}" data-a="upw" data-id="${u.id}">${I(IC.power)}</button>` : ''}</div>`;
 }
 
 // ===== DETTAGLIO UNITÀ
@@ -282,8 +324,8 @@ function vUnit() {
 }
 
 // ===== GRAFICO
-const idsSerie = (k) => k === 'all' ? CFG.unita.map(u => u.id) : k.startsWith('g:') ? grp(k.slice(2)).unita : [k.slice(2)];
-const nomeSerie = (k) => k === 'all' ? 'Tutto' : k.startsWith('g:') ? grp(k.slice(2)).nome : unita(k.slice(2)).nome;
+const idsSerie = (k) => k === 'all' ? CFG.unita.map(u => u.id) : k.startsWith('g:') ? grp(k.slice(2))?.unita || [] : [k.slice(2)];
+const nomeSerie = (k) => k === 'all' ? 'Tutto' : k.startsWith('g:') ? grp(k.slice(2))?.nome || 'Ambiente eliminato' : unita(k.slice(2)).nome;
 function periodo() {
   const g = S.g, b = Date.now();
   if (g.range === 'c') { if (!g.applied || !S.dt.f) return null; return [new Date(S.dt.f + 'T00:00').getTime(), new Date((S.dt.t || S.dt.f) + 'T23:59:59').getTime()]; }
@@ -316,10 +358,17 @@ function vGrafico() {
   return h;
 }
 function chipSerie(k, l) { const i = S.g.sel.indexOf(k), c = COL[(i < 0 ? 0 : i) % COL.length]; return `<button class="${i >= 0 ? 'on' : ''}" style="--c:${c}" data-a="serie" data-k="${k}"><i></i>${esc(l)}</button>`; }
+// Il grafico si ricrea solo se cambiano periodo, serie o canvas; altrimenti si aggiornano i dati (niente lavoro a ogni poll).
+let CHART_KEY = '';
 function disegna() {
-  const cv = $('#chart'); if (chart) { chart.destroy(); chart = null; } if (!cv || !S.g.hist) return;
-  const p = S.g.hist.p, mu = getComputedStyle(document.body).getPropertyValue('--muted').trim(), ln = getComputedStyle(document.body).getPropertyValue('--line').trim();
-  const ds = S.g.sel.map((k, i) => ({ label: nomeSerie(k), data: calcola(k).filter(x => x[0] >= p[0]).map(x => ({ x: x[0], y: x[1] })), borderColor: COL[i % COL.length], borderWidth: 2.5, pointRadius: 0, tension: .3, fill: i === 0 ? 'origin' : false, backgroundColor: i === 0 ? COL[0] + '30' : undefined }));
+  const cv = $('#chart'); if (!cv || !S.g.hist) { if (chart) { chart.destroy(); chart = null; } return; }
+  const p = S.g.hist.p, key = S.g.sel.join('|') + '#' + p.join('-') + '#' + S.g.range;
+  const dati = () => S.g.sel.map(k => calcola(k).filter(x => x[0] >= p[0]).map(x => ({ x: x[0], y: x[1] })));
+  if (chart && chart.canvas === cv && key === CHART_KEY) { dati().forEach((d, i) => { chart.data.datasets[i].data = d; }); chart.update('none'); return; }
+  if (chart) { chart.destroy(); chart = null; }
+  CHART_KEY = key;
+  const mu = getComputedStyle(document.body).getPropertyValue('--muted').trim(), ln = getComputedStyle(document.body).getPropertyValue('--line').trim();
+  const dd = dati(), ds = S.g.sel.map((k, i) => ({ label: nomeSerie(k), data: dd[i], borderColor: COL[i % COL.length], borderWidth: 2.5, pointRadius: 0, tension: .3, fill: i === 0 ? 'origin' : false, backgroundColor: i === 0 ? COL[0] + '30' : undefined }));
   chart = new Chart(cv, { type: 'line', data: { datasets: ds }, options: { responsive: true, maintainAspectRatio: false, parsing: false, animation: false, interaction: { mode: 'nearest', intersect: false },
     scales: { x: { type: 'linear', min: p[0], max: p[1], grid: { color: ln }, ticks: { color: mu, maxTicksLimit: 5, callback: v => new Date(v).toLocaleString('it-IT', S.g.range === '1' ? { hour: '2-digit', minute: '2-digit' } : { day: 'numeric', month: 'short' }) } }, y: { grid: { color: ln }, ticks: { color: mu, callback: v => fmt(v) } } },
     plugins: { legend: { display: false }, tooltip: { callbacks: { title: i => new Date(i[0].parsed.x).toLocaleString('it-IT'), label: c => `${c.dataset.label}: ${fmt(c.parsed.y)} °C` } } } } });
@@ -353,32 +402,25 @@ function scorciatoia(k) {
 const giorniTxt = (s) => GG_ORD.filter(g => s.giorni.includes(g)).map(g => GG[g]).join(' · ');
 const inizioFase = (sc, i) => i === 0 ? sc.fasi[0].inizio : sc.fasi[i - 1].fino;
 const TAG_LOG = { comando: 'Comando', avvio: 'Comando', lettura: 'Lettura', avviso: 'Avviso', errore: 'Avviso' };
-const NO_T = { vent: 'Vent.', deum: 'Deum.' }, TIPO_MODO = { 3: 'vent', 2: 'deum' };      // fasi senza temperatura
 const etichettaFase = (modo, f) => NO_T[f.tipo] || `${MODI[modo]} ${fmt(f.target)}°`;
-const fineFaseTxt = (sc, i) => { const f = sc.fasi[i]; return f.tipo === 'off' ? inizioFase(sc, i) : f.fino; };
 const rigaFase = (r) => r.inAttesa ? `In attesa del prossimo avvio${r.prossimoAvvio ? ` · ${r.prossimoAvvio.oggi ? 'oggi' : GG[r.prossimoAvvio.giorno]} alle ${r.prossimoAvvio.ora}` : ''}`
   : r.fase >= 0 ? `Fase ${r.fase + 1} di ${r.nFasi} · ${esc(r.faseNome)}` : 'In attesa del primo controllo';
-// Scheda "Scenario attivo" della home: tocco = scheda dello scenario.
-function schedaScenario() {
+// Scheda dello scenario attivo. Home (estesa=false): tocco = scheda dello scenario. Scenari (estesa=true): con giorni, fine fase e pulsanti.
+function schedaRun(estesa) {
   const r = RUN, sc = SC.find(s => s.id === r.scenario_id); if (!r.attivo || !sc) return '';
-  const f = r.fase >= 0 ? sc.fasi[r.fase] : null;
-  return `<div class="ban tap" style="--c:var(--c${sc.modo})" data-a="scd" data-id="${sc.id}" role="button"><div class="bt"><span>${I(IC.cal)} Scenario attivo</span><span class="live"><i></i>${r.inPausa ? 'In pausa' : r.inAttesa ? 'In attesa' : 'In corso'}</span></div>
-    <div class="bn"><div><b>${esc(sc.nome)}</b><span>${rigaFase(r)}${!r.inAttesa && r.fineFase ? ' · fino alle ' + r.fineFase : ''}</span></div><div class="go">${I(IC.chev)}</div></div>
-    <div class="chs">${!r.inAttesa && f && f.tipo === 'temp' ? `<span class="chp c">${MODI[sc.modo]} ${fmt(f.target)}°</span>` : ''}<span class="chp">${sc.unita.length} unità</span>${r.inMant ? `<span class="chp c" style="--c:var(--m1)">${r.inMant} in mantenimento</span>` : ''}</div>
-    ${r.inAttesa ? '' : `<div class="bar"><i style="width:${Math.round((r.progresso || 0) * 100)}%"></i></div>`}</div>`;
-}
-function bannerRun() {
-  const r = RUN, sc = SC.find(s => s.id === r.scenario_id); if (!r.attivo || !sc) return '';
-  const f = r.fase >= 0 ? sc.fasi[r.fase] : null;
-  return `<div class="lb" style="margin-top:0">In esecuzione</div><div class="ban" style="--c:var(--c${sc.modo})"><div class="bt"><span>${I(IC.cal)} Scenario attivo</span><span class="live"><i></i>${r.inPausa ? 'In pausa · sola lettura' : r.inAttesa ? 'In attesa' : 'In corso'}</span></div>
-    <div class="bn"><div><b>${esc(sc.nome)}</b><span>${rigaFase(r)}</span></div></div>
-    <div class="chs"><span class="chp c">${giorniTxt(sc)}</span><span class="chp">${sc.unita.length} unità</span>${r.inMant ? `<span class="chp c" style="--c:var(--m1)">${r.inMant} in mantenimento</span>` : ''}</div>
-    ${r.inAttesa ? '' : `<div class="bar"><i style="width:${Math.round((r.progresso || 0) * 100)}%"></i></div>`}<div class="bl"><span>${r.fineFase ? 'Fino alle ' + r.fineFase : ''}</span>${f && f.tipo === 'temp' ? `<b>${MODI[sc.modo]} ${fmt(f.target)}°</b>` : ''}</div></div>
+  const f = r.fase >= 0 ? sc.fasi[r.fase] : null, temp = !r.inAttesa && f && f.tipo === 'temp' ? `${MODI[sc.modo]} ${fmt(f.target)}°` : '';
+  const stato = r.inPausa ? (estesa ? 'In pausa · sola lettura' : 'In pausa') : r.inAttesa ? 'In attesa' : 'In corso', fino = !r.inAttesa && r.fineFase ? r.fineFase : '';
+  const card = `<div class="ban${estesa ? '' : ' tap'}" style="--c:var(--c${sc.modo})"${estesa ? '' : ` data-a="scd" data-id="${sc.id}" role="button"`}><div class="bt"><span>${I(IC.cal)} Scenario attivo</span><span class="live"><i></i>${stato}</span></div>
+    <div class="bn"><div><b>${esc(sc.nome)}</b><span>${rigaFase(r)}${!estesa && fino ? ' · fino alle ' + fino : ''}</span></div>${estesa ? '' : `<div class="go">${I(IC.chev)}</div>`}</div>
+    <div class="chs">${estesa ? `<span class="chp c">${giorniTxt(sc)}</span>` : temp ? `<span class="chp c">${temp}</span>` : ''}<span class="chp">${sc.unita.length} unità</span>${r.inMant ? `<span class="chp c" style="--c:var(--m1)">${r.inMant} in mantenimento</span>` : ''}</div>
+    ${r.inAttesa ? '' : `<div class="bar"><i style="width:${Math.round((r.progresso || 0) * 100)}%"></i></div>`}${estesa ? `<div class="bl"><span>${fino ? 'Fino alle ' + fino : ''}</span>${temp ? `<b>${temp}</b>` : ''}</div>` : ''}</div>`;
+  if (!estesa) return card;
+  return `<div class="lb" style="margin-top:0">In esecuzione</div>${card}
   <div class="two"><button class="cta g" style="margin:0" data-a="scd" data-id="${sc.id}">Dettaglio</button><button class="cta bad${W()}" style="margin:0" data-a="sheetStop">${I(IC.stop)}Interrompi</button></div>`;
 }
 function vScenari() {
   const altri = SC.filter(s => !(RUN.attivo && RUN.scenario_id === s.id));
-  return `<div class="h1">Scenari</div>${bannerRun()}
+  return `<div class="h1">Scenari</div>${schedaRun(true)}
   <div class="lb">${RUN.attivo ? 'Altri scenari' : 'Scenari'}</div>
   ${altri.map(s => `<div class="sc2" style="--c:var(--c${s.modo})" data-a="scd" data-id="${s.id}"><div class="ico">${I(IC[s.modo])}</div><div><b>${esc(s.nome)}</b><span>${MODI[s.modo]} · ${giorniTxt(s)} · ${s.fasi.length} fasi<br>${esc(nomeGruppoDi(s.unita))} · ${s.unita.length} unità</span></div><button class="go${W()}" data-a="avvia" data-id="${s.id}" aria-label="Avvia ${esc(s.nome)}">${I(IC.play)}</button></div>`).join('') || '<div class="note">Nessun altro scenario.</div>'}
   <div class="note">Uno scenario parte solo quando lo avvii: da lì si ripete da solo nei suoi giorni finché non lo interrompi. Un solo scenario è attivo alla volta: se ne avvii un altro, quello in corso viene interrotto.${CFG.scrittura ? '' : ' Con la scrittura disattivata gli scenari sono solo da consultare.'}</div>
@@ -392,7 +434,7 @@ function vScd() {
     const stato = run ? (i === RUN.fase ? 'now' : i < RUN.fase ? 'ok' : '') : '', dt = stato === 'ok' ? ico14('check') : p.tipo === 'off' ? ico14('power') : i + 1;
     if (p.tipo === 'off') return `<div class="tp ${stato}"><span class="dt">${dt}</span><b>Spegni impianto</b><span class="s">alle ${inizioFase(sc, i)}</span></div>`;
     return `<div class="tp ${stato}"><span class="dt">${dt}</span><b>${esc(p.nome)}</b><span class="s">${inizioFase(sc, i)} → ${p.fino} · ${etichettaFase(sc.modo, p)}</span>
-      <div class="chs">${stato === 'now' ? '<span class="chp c">In corso</span>' : ''}${mantChips(p)}</div></div>`;
+      <div class="chs">${stato === 'now' ? '<span class="chp c">In corso</span>' : ''}${mantChip(p, true)}</div></div>`;
   }).join('');
   const dal = RUN.avviato ? `${GG[new Date(RUN.avviato).getDay()].toLowerCase()} ${hm(RUN.avviato)}` : '';
   const m = f?.mant && f.mant.target != null ? f.mant : null, sopra = sc.modo === 5 ? 'sotto' : 'sopra';
@@ -512,6 +554,9 @@ function nuovoWz(sc, duplica = false) {
   SUB = { k: 'wiz' }; scrollTo(0, 0);
 }
 const wzInizio = (w, i) => i === 0 ? w.fasi[0].inizio : w.fasi[i - 1].fino;
+// Una fase che finisce a un'ora uguale o precedente a quella d'inizio termina il giorno dopo (attraversa la mezzanotte).
+const giornoDopo = (da, a) => !!da && !!a && minuti(a) <= minuti(da);
+const notaNotte = (w, p, i) => giornoDopo(i > 0 ? wzInizio(w, i) : p.inizio, p.fino) ? '<div class="note" style="margin-top:0">La fase finisce il giorno dopo. Può attraversare la mezzanotte.</div>' : '';
 // Selettore del tipo di fase, con le stesse icone delle modalità: dei due modi a temperatura resta attivo solo quello dello scenario;
 // Vent. e Deum. sono sempre disponibili (anche in uno scenario Vent./Deum., dove Raff. e Risc. sono entrambi disattivati), Spento solo dopo la prima fase.
 function tipiFase(w, i, cur) {
@@ -549,7 +594,7 @@ function vWiz() {
     b = `<div class="note" style="margin:0 4px 12px">${GG_ORD.filter(g => w.giorni.includes(g)).map(g => GG[g]).join(' · ')}. La prima fase parte all’ora che scegli; ogni altra parte quando finisce la precedente.</div>
     <div class="panel" style="--c:${c};padding:12px 14px"><div class="day">${seg}</div><div class="day-h"><span>00</span><span>06</span><span>12</span><span>18</span><span>24</span></div></div>
     <div class="lb">Fasi</div>
-    ${w.fasi.map((f, i) => f.tipo === 'off' ? spegni(f, i) : `<div class="ph" style="--c:${c}" data-fi="${i}">${mov ? grip(i, true) : ''}<span class="nn">${i + 1}</span><div class="pb"><b>${esc(f.nome)}</b><span>${wzInizio(w, i)} → ${f.fino}${minuti(f.fino) <= minuti(wzInizio(w, i)) ? ' · giorno dopo' : ''}</span><div class="chs"><span class="chp c">${etichettaFase(w.modo, f)}</span>${mantChip(f)}${f.oscillazione ? '<span class="chp">Su–giù</span>' : ''}</div></div><button class="ed" data-a="wzed" data-i="${i}" aria-label="Modifica">${I(IC.edit)}</button>${del(i, mov)}</div>`).join('')}
+    ${w.fasi.map((f, i) => f.tipo === 'off' ? spegni(f, i) : `<div class="ph" style="--c:${c}" data-fi="${i}">${mov ? grip(i, true) : ''}<span class="nn">${i + 1}</span><div class="pb"><b>${esc(f.nome)}</b><span>${wzInizio(w, i)} → ${f.fino}${giornoDopo(wzInizio(w, i), f.fino) ? ' · giorno dopo' : ''}</span><div class="chs"><span class="chp c">${etichettaFase(w.modo, f)}</span>${mantChip(f)}${f.oscillazione ? '<span class="chp">Su–giù</span>' : ''}</div></div><button class="ed" data-a="wzed" data-i="${i}" aria-label="Modifica">${I(IC.edit)}</button>${del(i, mov)}</div>`).join('')}
     <button class="add" style="--c:${c}" data-a="wzadd">${I(IC.plus)}Aggiungi fase</button>
     <div class="note">Le fasi possono attraversare la mezzanotte (es. dalle 20:00 alle 06:00). Per spegnere l'impianto aggiungi la fase «Spento».</div>`;
   } else {
@@ -577,8 +622,8 @@ function eliminaFase(i, nomeFase) {
 // Con "si spegne" (mant.spegni) l'unità si spegne invece di tenere un setpoint, e si riaccende al ritorno.
 const mantOn = (f) => f.mant && f.mant.target != null;
 const mantDur = (m) => m.spegni ? 'spenta' : `${fmt(m.temp)}°`;
-const mantChips = (f) => mantOn(f) ? `<span class="chp">${I(IC.bolt)}Arriva a ${fmt(f.mant.target)}°</span><span class="chp">${I(f.mant.spegni ? IC.power : IC.loop)}${f.mant.spegni ? 'Spenta' : `Mant. ${fmt(f.mant.temp)}°`} → ${fmt(f.mant.ritorno)}°</span>` : '';
-const mantChip = (f) => mantOn(f) ? `<span class="chp">${I(IC.bolt)}Arriva a ${fmt(f.mant.target)}°</span><span class="chp">${I(f.mant.spegni ? IC.power : IC.loop)}${f.mant.spegni ? 'Spenta' : `Mant. ${fmt(f.mant.temp)}°`}</span>` : '';
+// Chip del mantenimento; conRitorno aggiunge la soglia di ritorno al programma (scheda scenario).
+const mantChip = (f, conRitorno = false) => mantOn(f) ? `<span class="chp">${I(IC.bolt)}Arriva a ${fmt(f.mant.target)}°</span><span class="chp">${I(f.mant.spegni ? IC.power : IC.loop)}${f.mant.spegni ? 'Spenta' : `Mant. ${fmt(f.mant.temp)}°`}${conRitorno ? ` → ${fmt(f.mant.ritorno)}°` : ''}</span>` : '';
 const mantIniziale = (t, risc) => ({ target: clamp(t + (risc ? .5 : -.5)), temp: clamp(t + (risc ? -2 : 2)), ritorno: clamp(t + (risc ? -1.5 : 1.5)) });
 function mantErrore(p, risc) {                    // stesse regole del server (logic.valida)
   const m = p.mant, oltre = (x, y) => risc ? x > y : x < y, sotto = risc ? 'sotto' : 'sopra';
@@ -619,7 +664,7 @@ function mantPannello(p, risc, c) {
 }
 function vFase() {
   const w = S.wz, p = S.ph, i = SUB.i, c = `var(--c${w.modo})`, nuova = SUB.nuova, risc = w.modo === 5, off = p.tipo === 'off';
-  const nTemp = w.fasi.filter(f => f.tipo !== 'off').length, nome = MODI[w.modo], t = fmt(p.target);
+  const nTemp = w.fasi.filter(f => f.tipo !== 'off').length, nome = MODI[w.modo];
   const base = `<div class="panel" style="--c:${c};display:flex;align-items:center;gap:10px"><div class="chp c" style="--c:${c}">${I(IC[w.modo])}${nome}</div><span class="cap" style="margin:0">Modalità dello scenario</span></div>
   <div class="lb">Cosa fa l'impianto</div>${tipiFase(w, i, p.tipo)}`;
   if (off) return `${wh(`Fase ${i + 1} · Spegnimento`, 'Spegne le unità dello scenario', '<button class="an" data-a="back">Annulla</button>')}${base}
@@ -632,14 +677,14 @@ function vFase() {
   <label class="fld"><small>Nome fase</small><input data-m="ph.nome" value="${esc(p.nome)}"></label>
   <div class="panel"><div class="t"><b>${p.tipo === 'vent' ? 'Solo ventilazione' : 'Deumidificazione'}</b></div><div class="cap" style="margin:0">Per tutta la fase le unità restano accese in modalità ${nt} Non serve nessuna temperatura.</div></div>
   <div class="dtr"><label class="fld"><small>Dalle</small>${i === 0 ? `<input type="time" data-m="ph.inizio" value="${p.inizio}">` : `<b style="font-size:18px">${wzInizio(w, i)}</b>`}</label><label class="fld"><small>Fino alle</small><input type="time" data-m="ph.fino" value="${p.fino}"></label></div>
-  ${p.fino && minuti(p.fino) <= minuti(i > 0 ? wzInizio(w, i) : p.inizio) ? '<div class="note" style="margin-top:0">La fase finisce il giorno dopo. Può attraversare la mezzanotte.</div>' : ''}
+  ${notaNotte(w, p, i)}
   ${nTemp > 1 && !nuova ? `<button class="cta bad" data-a="phdel">Elimina fase</button>` : ''}<div style="height:90px"></div>
   <div class="foot"><button class="cta" style="--c:${c}" data-a="phsalva">Salva fase</button></div>`;
   return `${wh(`Fase ${i + 1} · ${nuova ? 'nuova' : 'modifica'}`, `${MODI_LUNGO[w.modo]} · per ogni unità`, '<button class="an" data-a="back">Annulla</button>')}${base}
   <label class="fld"><small>Nome fase</small><input data-m="ph.nome" value="${esc(p.nome)}"></label>
   <div class="panel" style="--c:${c}"><div class="t"><b>Temperatura target</b></div>${bst(p.target, 'phtarget')}</div>
   <div class="dtr"><label class="fld"><small>Dalle</small>${i === 0 ? `<input type="time" data-m="ph.inizio" value="${p.inizio}">` : `<b style="font-size:18px">${wzInizio(w, i)}</b>`}</label><label class="fld"><small>Fino alle</small><input type="time" data-m="ph.fino" value="${p.fino}"></label></div>
-  ${p.fino && minuti(p.fino) <= minuti(wzInizio(w, i) && i > 0 ? wzInizio(w, i) : p.inizio) ? '<div class="note" style="margin-top:0">La fase finisce il giorno dopo. Può attraversare la mezzanotte.</div>' : ''}
+  ${notaNotte(w, p, i)}
   <div class="lb">Oscillazione</div>${oscSeg(!!p.oscillazione, 'phosc')}
   <div class="lb">Opzionale</div><div class="row" style="--c:${c}"><div><b>Mantieni temperatura</b><span>${p.mant ? 'Ogni unità segue la sua stanza: quando la stanza arriva al target, quell\'unità passa al mantenimento; le altre restano sul programma.' : 'Quando la stanza raggiunge il target, tieni un setpoint di mantenimento per risparmiare.'}</span></div><button class="sw ${p.mant ? 'on' : ''}" data-a="phmant"></button></div>
   ${p.mant ? mantPannello(p, risc, c) : ''}
@@ -672,13 +717,14 @@ const b64 = (s) => Uint8Array.from(atob((s + '='.repeat((4 - s.length % 4) % 4))
 // ===== FOGLI (bottom sheet)
 function vSheet() {
   if (SHEET.k === 'sp') {
+    filtroValido();
     const [lo, hi] = LIM(), cur = SHEET.v, vals = []; for (let x = lo; x <= hi + 1e-9; x += .5) vals.push(x);
-    const n = idsFiltro().length, tutte = SHEET.t === 'ptsp';
-    const tit = SPK[SHEET.t] ? SPK[SHEET.t].tit : tutte ? (FILTRO === 'tutti' ? 'Temperatura per tutte le unità' : `Temperatura · ${esc(grp(FILTRO).nome)}`) : `${esc(unita(SHEET.id || S.ud.id).nome)} · temperatura`;
+    const tutte = SHEET.t === 'ptsp';
+    const tit = SPK[SHEET.t] ? SPK[SHEET.t].tit : tutte ? (FILTRO === 'tutti' ? 'Temperatura per tutte le unità' : `Temperatura · ${esc(grp(FILTRO)?.nome || '')}`) : `${esc(unita(SHEET.id || S.ud.id).nome)} · temperatura`;
     return `<div class="dim" data-a="close"></div><div class="sheet"><div class="grab"></div><div class="sh"><b>${tit}</b><button data-a="close">Annulla</button></div>
     <div class="lim">${I(IC.info || IC.check)} Limiti impianto ${fmt(lo)} – ${fmt(hi)} °C · letti da AC Smart</div>
     <div class="sp">${vals.map(x => `<button class="${cur != null && Math.abs(x - cur) < .01 ? 'on' : ''}" data-a="spval" data-v="${x}">${fmt(x)}°</button>`).join('')}</div>
-    <div class="shint">${SHEET.t === 'usp' ? 'Tocca un valore per applicarlo subito' : 'Tocca un valore per sceglierlo'}</div></div>`;
+    <div class="shint">Tocca un valore per applicarlo subito</div></div>`;
   }
   if (SHEET.k === 'modo') {
     const sel = SHEET.sel;
@@ -753,13 +799,21 @@ const ACT = {
     if (sc && !accese) return ACT.stop({ v: '0' });
     SHEET = { k: 'stop', v: '1' }; render();
   },
-  async stop(d) { try { RUN = await api('/api/run/stop', 'POST', { spegni: d.v === '1' }); SHEET = null; toast('Scenario interrotto'); setTimeout(aggiorna, 800); } catch (e) { toast(e.message, 'err'); } render(); },
+  async stop(d) {
+    try {
+      const r = await api('/api/run/stop', 'POST', { spegni: d.v === '1' }); RUN = r; SHEET = null;
+      if (r.avviso) toast('Scenario interrotto', 'warn', r.avviso); else toast('Scenario interrotto');
+      setTimeout(aggiorna, 800);
+    } catch (e) { toast(e.message, 'err'); }
+    render();
+  },
   live() {
     const bs = [...document.querySelectorAll('[data-a="live"]')]; bs.forEach(b => b.classList.add('busy'));
     const t0 = Date.now(), fine = () => setTimeout(() => bs.forEach(b => b.classList.remove('busy')), Math.max(0, 700 - (Date.now() - t0)));
     caricaStato(true).then(() => toast('Aggiornato')).finally(fine);
   },
   filtro(d) { FILTRO = d.v; render(); },
+  errtutti() { ERR_TUTTI = true; render(); },
   upw(d) {
     const s = STATO[d.id] || {}, on = !s.acceso;
     ctl('unit:' + d.id, { power: on ? 'on' : 'off' }, on ? `Accesa: ${MODI[s.modo] || 'Riscaldamento'}${s.ventola ? ', ventola ' + (VENT[s.ventola] || '') : ''}` : 'Spenta');
@@ -809,12 +863,19 @@ const ACT = {
     conferma(`Parte subito e poi si ripete ogni ${giorniTxt(sc)} alle ${sc.fasi[0].inizio}, finché non lo interrompi.`, () => ACT.avviaOra({ id: sc.id }), { titolo: `Avviare “${sc.nome}”?`, ok: 'Avvia' });
   },
   async avviaOra(d) {
-    try { RUN = await api('/api/run/start', 'POST', { id: Number(d.id), sostituisci: !!d.sost }); SHEET = null; toast('Scenario avviato'); aggiorna(); } catch (e) { toast(e.message, 'err'); render(); }
+    try {
+      const r = await api('/api/run/start', 'POST', { id: Number(d.id), sostituisci: !!d.sost }); RUN = r; SHEET = null;
+      if (r.avviso) toast('Scenario avviato', 'warn', r.avviso); else toast('Scenario avviato');
+      aggiorna();
+    } catch (e) { SHEET = null; toast('Scenario non avviato', 'err', e.message); render(); }
   },
   salta(d) { conferma('Lo scenario passa subito alla fase scelta.', async () => { try { RUN = await api('/api/run/salta', 'POST', { fase: Number(d.i) }); toast('Fase cambiata'); render(); } catch (e) { toast(e.message, 'err'); } }, { titolo: 'Saltare alla fase?', ok: 'Salta' }); },
   // ambienti
   ambnuovo() { S.am = { id: null, nome: '', unita: [] }; SUB = { k: 'amb' }; scrollTo(0, 0); render(); },
-  ambmod(d) { if (Date.now() - SOPPRIMI < 400) return; const g = grp(d.id); S.am = { id: g.id, nome: g.nome, unita: [...g.unita] }; SUB = { k: 'amb' }; scrollTo(0, 0); render(); },
+  ambmod(d) {
+    if (Date.now() - SOPPRIMI < 400) return; const g = grp(d.id);
+    if (!g) { toast('Ambiente non più disponibile', 'err', 'È stato eliminato da un altro dispositivo'); return caricaAmbienti().then(render, () => render()); }
+    S.am = { id: g.id, nome: g.nome, unita: [...g.unita] }; SUB = { k: 'amb' }; scrollTo(0, 0); render(); },
   ambun(d) { const a = S.am, i = a.unita.indexOf(d.id); if (i >= 0) a.unita.splice(i, 1); else a.unita.push(d.id); render(); },
   ambtutti() { const a = S.am; a.unita = a.unita.length === CFG.unita.length ? [] : CFG.unita.map(u => u.id); render(); },
   async ambsalva() {
@@ -840,7 +901,9 @@ const ACT = {
 
   wzgg(d) { const g = Number(d.v), a = S.wz.giorni, i = a.indexOf(g); if (i >= 0) a.splice(i, 1); else a.push(g); render(); },
   wzum(d) { S.wz.um = d.v; if (d.v === 'tutto') S.wz.unita = CFG.unita.map(u => u.id); render(); },
-  wzgr(d) { const w = S.wz, ids = grp(d.id).unita, tutte = ids.every(x => w.unita.includes(x)); w.unita = tutte ? w.unita.filter(x => !ids.includes(x)) : [...new Set([...w.unita, ...ids])]; render(); },
+  wzgr(d) {
+    if (!grp(d.id)) { toast('Ambiente non più disponibile', 'err', 'Scegli le unità singolarmente o un altro ambiente'); return caricaAmbienti().then(render, () => render()); }
+    const w = S.wz, ids = grp(d.id).unita, tutte = ids.every(x => w.unita.includes(x)); w.unita = tutte ? w.unita.filter(x => !ids.includes(x)) : [...new Set([...w.unita, ...ids])]; render(); },
   wzall() { const w = S.wz; w.unita = w.unita.length === CFG.unita.length ? [] : CFG.unita.map(u => u.id); render(); },
   wzun(d) { const w = S.wz, i = w.unita.indexOf(d.id); if (i >= 0) w.unita.splice(i, 1); else w.unita.push(d.id); render(); },
   wzstep(d) { S.wz.step = Number(d.s); scrollTo(0, 0); render(); },
@@ -879,12 +942,25 @@ const ACT = {
     }
     SUB = { k: 'wiz' }; scrollTo(0, 0); render();
   },
+  // Il salvataggio e l'avvio sono due passi: se l'avvio fallisce lo scenario resta salvato (S.wz.id è già impostato,
+  // così un nuovo «Salva» non crea un doppione) e si torna all'elenco con l'errore.
   async wzsalva(d, el) {
+    const w = S.wz;
     try {
-      const w = S.wz, body = wzBody(), r = w.id ? await api('/api/scenari/' + w.id, 'PUT', body) : await api('/api/scenari', 'POST', body), id = w.id || r.id;
-      if (el.dataset.avvia) await api('/api/run/start', 'POST', { id, sostituisci: RUN.attivo && RUN.scenario_id !== id });
-      SC = await api('/api/scenari'); SUB = null; toast('Scenario salvato'); aggiorna();
-    } catch (e) { toast(e.message, 'err'); }
+      const body = wzBody(), r = w.id ? await api('/api/scenari/' + w.id, 'PUT', body) : await api('/api/scenari', 'POST', body);
+      w.id = w.id || r.id; w.dup = false;
+    } catch (e) { return toast(e.message, 'err'); }
+    let avviso = null, errore = null;
+    if (el.dataset.avvia) {
+      try { const r = await api('/api/run/start', 'POST', { id: w.id, sostituisci: RUN.attivo && RUN.scenario_id !== w.id }); RUN = r; avviso = r.avviso; }
+      catch (e) { errore = e.message; }
+    }
+    try { SC = await api('/api/scenari'); } catch { /* l'elenco si riallinea al prossimo caricamento */ }
+    SUB = null; TAB = 'scenari';
+    if (errore) toast('Scenario salvato ma non avviato', 'err', errore);
+    else if (avviso) toast('Scenario salvato e avviato', 'warn', avviso);
+    else toast(el.dataset.avvia ? 'Scenario salvato e avviato' : 'Scenario salvato');
+    aggiorna();
   },
   // notifiche
   async pushon() {
@@ -900,8 +976,18 @@ const ACT = {
 document.addEventListener('click', (e) => { const a = e.target.closest('[data-a]'); if (a && !a.classList.contains('dis') && !a.closest('.dis') && ACT[a.dataset.a]) ACT[a.dataset.a](a.dataset, a); });
 document.addEventListener('input', (e) => { if (e.target.dataset.imp) { IMPD[e.target.dataset.imp] = e.target.value; return; } const m = e.target.dataset.m; if (!m) return; const [o, k] = m.split('.'); S[o][k] = e.target.value; });
 
+// Senza la configurazione l'app non può disegnare nulla: invece della pagina bianca, un avviso con «Riprova».
+async function caricaConfig() {
+  for (;;) {
+    try { const c = await api('/api/config'); usaNomi(c.nomi); return c; } catch (e) {
+      $('#v').innerHTML = `<div class="hero ko"><div class="l"><span>${saluto()}</span><span class="badge"><i></i>Offline</span></div><h2>App non raggiungibile</h2>
+        <div class="note" style="color:#f1e3c8;text-align:left;margin:0">${esc(e.message)}</div></div><div class="quick"><button class="q graf" id="riprova">${I(IC.refresh)}Riprova</button></div>`;
+      await new Promise(r => { $('#riprova').onclick = r; setTimeout(r, 15000); });
+    }
+  }
+}
 (async () => {
-  CFG = await api('/api/config');
+  CFG = await caricaConfig();
   if ('serviceWorker' in navigator && window.isSecureContext) navigator.serviceWorker.register('/sw.js').catch(() => {});
   const t = (location.hash.match(/^#\/([a-z]+)/) || [])[1]; if (TABS.includes(t)) TAB = t;   // la scheda giusta già dal primo disegno
   await Promise.all([caricaStato(), caricaRun()]);

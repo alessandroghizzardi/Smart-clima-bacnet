@@ -1,5 +1,5 @@
 // Accesso ai dati degli ambienti (gruppi di unità) in SQLite. Nessuna logica di business qui.
-const { db } = require('../db');
+const { db, tx } = require('../db');
 
 const q = {
   tutti: db.prepare('SELECT id, nome FROM ambienti ORDER BY ordine, id'),
@@ -16,7 +16,6 @@ const q = {
 // ordine delle unità = ordine dell'impianto, non quello di inserimento
 let ordine = [];
 const ordina = (ids) => [...ids].sort((a, b) => ordine.indexOf(a) - ordine.indexOf(b));
-const tx = (fn) => { db.exec('BEGIN'); try { const r = fn(); db.exec('COMMIT'); return r; } catch (e) { db.exec('ROLLBACK'); throw e; } };
 const scriviUnita = (id, unita) => { q.delU.run(id); for (const u of unita) q.insU.run(id, u); };
 
 module.exports = {

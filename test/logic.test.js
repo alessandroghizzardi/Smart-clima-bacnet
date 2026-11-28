@@ -43,6 +43,27 @@ test('mantieni temperatura (raffrescamento 24 / target 23,5 / mant. 26 / ritorno
   assert.equal(d(25, { stato: 'mant' }).stato, 'mant');
   assert.deepEqual(d(25.5, { stato: 'mant' }), { stato: 'salita', setpoint: 24 });
 });
+test('mantenimento "si spegne" (riscaldamento 20 / target 20,5 / ritorno 18,5): l\'unità si spegne e si riaccende', () => {
+  const f = { tipo: 'temp', target: 20, mant: { target: 20.5, spegni: true, ritorno: 18.5 } }, d = (t, prev) => L.decidiUnita(f, 5, t, prev);
+  const off = { stato: 'mant', setpoint: null, spento: true };
+  assert.deepEqual(d(20, null), { stato: 'target', setpoint: 20 });
+  assert.deepEqual(d(20.5, { stato: 'target' }), off);
+  assert.deepEqual(d(19, { stato: 'mant' }), off);                                          // spenta finché non scende al ritorno
+  assert.deepEqual(d(18.5, { stato: 'mant' }), { stato: 'salita', setpoint: 20 });           // ritorno: riaccende al programma
+  assert.deepEqual(d(null, { stato: 'mant' }), off);                                         // lettura mancante: resta spenta
+});
+test('mantenimento "si spegne" (raffrescamento 24 / target 23,5 / ritorno 25,5)', () => {
+  const f = { tipo: 'temp', target: 24, mant: { target: 23.5, spegni: true, ritorno: 25.5 } }, d = (t, prev) => L.decidiUnita(f, 1, t, prev);
+  assert.equal(d(23.5, { stato: 'salita' }).spento, true);
+  assert.equal(d(25, { stato: 'mant' }).spento, true);
+  assert.deepEqual(d(25.5, { stato: 'mant' }), { stato: 'salita', setpoint: 24 });
+});
+test('mantenimento per singola unità: ogni unità segue la sua stanza', () => {
+  const f = sc.fasi[0], prev = { '11': { stato: 'target' }, '12': { stato: 'target' } }, temp = { '11': 20.6, '12': 19.8 };
+  const r = Object.fromEntries(Object.keys(temp).map(u => [u, L.decidiUnita(f, 5, temp[u], prev[u])]));
+  assert.deepEqual(r['11'], { stato: 'mant', setpoint: 18 });                                // stanza arrivata: mantenimento
+  assert.deepEqual(r['12'], { stato: 'salita', setpoint: 20 });                           // l'altra resta sul programma
+});
 test('mantenimento nel vecchio formato (senza target/ritorno) è ignorato', () => {
   assert.deepEqual(L.decidiUnita({ tipo: 'temp', target: 20, mant: { temp: 18, soglia: 18.5 } }, 5, 19, null), { stato: 'salita', setpoint: 20 });
 });
@@ -70,6 +91,8 @@ test('valida: errori e normalizzazione', () => {
   assert.throws(() => mant({ target: 20.5, temp: 18, ritorno: 20.5 }), /ritorno/);                      // ritorno non sotto il target
   assert.throws(() => mant({ target: 20.5, temp: 19, ritorno: 18.5 }), /mantenimento non può/);         // mantenimento sopra il ritorno
   assert.throws(() => mant({ target: 23.5, temp: 25, ritorno: 25.5 }, 1, 24), /mantenimento non può/);
+  assert.deepEqual(mant({ target: 20.5, spegni: true, temp: 25, ritorno: 18.5 }).fasi[0].mant, { target: 20.5, spegni: true, ritorno: 18.5 });   // si spegne: temp ignorata
+  assert.throws(() => mant({ target: 20.5, spegni: true, ritorno: 21 }), /ritorno/);
 });
 test('valida: fase notturna, oscillazione e limiti da config', () => {
   const note = { 11: 1 };

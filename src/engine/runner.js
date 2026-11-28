@@ -9,22 +9,31 @@ const L = require('./logic');
 const repo = require('../repo/scenari');
 const { eseguiPiano } = require('../scenes');
 
-const TOLLERANZA_AVVIO = 15;                  // minuti: oltre l'ora di inizio non si avvia da solo
 const attivo = (r) => r && !r.concluso;
 let occupato = false;                         // evita due cicli sovrapposti
 const run = () => kvGet('run');
 
 const minutiDa = (r, n = adesso()) => (giorniDa(n.data) - giorniDa(r.giorno)) * 1440 + L.minuti(n.ora);
 
-function avvia(scenarioId, { manuale = true } = {}) {
+// Uno scenario parte solo quando lo si avvia: da lì si ripete nei suoi giorni finché non lo si interrompe.
+// Con `sostituisci` interrompe quello attivo e spegne le sue unità che il nuovo scenario non usa.
+async function avvia(scenarioId, { sostituisci = false } = {}) {
   const sc = repo.trova(scenarioId); if (!sc) throw new Error('scenario non trovato');
   mode.richiedi();
-  const r = run(); if (attivo(r)) throw new Error(`c'è già uno scenario attivo: "${r.nome}"`);
+  const r = run();
+  if (attivo(r)) {
+    if (r.scenario_id === sc.id) throw new Error(`"${sc.nome}" è già avviato`);
+    if (!sostituisci) throw new Error(`c'è già uno scenario attivo: "${r.nome}"`);
+    const vecchio = repo.trova(r.scenario_id), piano = {};
+    (vecchio ? vecchio.unita : []).filter(u => !sc.unita.includes(u)).forEach(u => piano[u] = { power: 'off' });
+    if (Object.keys(piano).length) await eseguiPiano(piano, await bac.leggiStato(), `scenario "${r.nome}": interrotto, spegni le unità non usate da "${sc.nome}"`);
+    concludi(r, `interrotto: avviato "${sc.nome}"`);
+  }
   const n = adesso();
-  const nuovo = { scenario_id: sc.id, nome: sc.nome, giorno: n.data, minFase: 0, manuale, fase: -1, unita: {}, avviato: Date.now(), ultimo_controllo: null, concluso: false, motivo: null };
+  const nuovo = { scenario_id: sc.id, nome: sc.nome, giorno: n.data, minFase: 0, manuale: true, fase: -1, unita: {}, avviato: Date.now(), ultimo_controllo: null, concluso: false, motivo: null };
   kvSet('run', nuovo);
   kvSet('auto:' + sc.id, n.data);                // il ciclo di oggi è già partito
-  addLog('comando', `scenario "${sc.nome}" avviato${manuale ? ' a mano' : ' in automatico'}`);
+  addLog('comando', `scenario "${sc.nome}" avviato`);
   return nuovo;
 }
 
@@ -75,8 +84,9 @@ async function controlla() {
   for (const u of sc.unita) {
     const s = stato[u]; if (!s) continue;
     const d = L.decidiUnita(fase, sc.modo, s.temp, r.unita[u]);
-    nuoveUnita[u] = { stato: d.stato, setpoint: d.setpoint, temp: s.temp };
-    piano[u] = { power: 'on', modo: sc.modo, setpoint: d.setpoint, ...(fase.oscillazione !== undefined ? { oscillazione: fase.oscillazione } : {}) };
+    nuoveUnita[u] = { stato: d.stato, setpoint: d.setpoint, temp: s.temp, ...(d.spento ? { spento: true } : {}) };
+    piano[u] = d.spento ? { power: 'off' }                                    // mantenimento "si spegne": solo questa unità
+      : { power: 'on', modo: sc.modo, setpoint: d.setpoint, ...(fase.oscillazione !== undefined ? { oscillazione: fase.oscillazione } : {}) };
   }
   r.unita = nuoveUnita; r.ultimo_controllo = Date.now();
   try { await eseguiPiano(piano, stato, `scenario "${sc.nome}" fase ${i + 1}`); }
@@ -85,23 +95,10 @@ async function controlla() {
   return r;
 }
 
-// Avvio automatico: giorno e ora di inizio della prima fase, una sola volta al giorno.
-async function avvioAutomatico() {
-  if (!mode.attiva()) return;
-  const n = adesso();
-  for (const sc of repo.elenco()) {
-    if (!sc.giorni.includes(n.giorno) || kvGet('auto:' + sc.id) === n.data) continue;
-    const rit = L.minuti(n.ora) - L.minuti(sc.fasi[0].inizio);
-    if (rit < 0) continue;
-    kvSet('auto:' + sc.id, n.data);
-    if (rit > TOLLERANZA_AVVIO) { addLog('errore', `scenario "${sc.nome}" non avviato (${rit} min di ritardo)`); continue; }
-    avvia(sc.id, { manuale: false }); return;
-  }
-}
-
+// Nessun avvio automatico: gli scenari non avviati restano fermi; quello avviato riparte da solo nei suoi giorni (vedi controlla).
 async function tick() {
   if (occupato) return; occupato = true;
-  try { if (attivo(run())) await controlla(); else await avvioAutomatico(); if (attivo(run())) await controlla(); }
+  try { if (attivo(run())) await controlla(); }
   finally { occupato = false; }
 }
 
@@ -135,7 +132,7 @@ function situazione() {
   const unita = sc.unita.map(id => ({ id, ...(r.unita[id] || {}) }));
   return { ...base, fase: r.fase, nFasi: sc.fasi.length, faseTipo: f.tipo, faseNome: f.nome || 'Spegni impianto',
     inizioFase: L.hhmm(c.inizio), fineFase: Number.isFinite(c.fine) ? L.hhmm(c.fine) : null, progresso: prog,
-    inMant: unita.filter(u => u.stato === 'mant').length, unita };
+    inMant: unita.filter(u => u.stato === 'mant').length, spente: unita.filter(u => u.spento).length, unita };
 }
 
 const avviaTimer = () => {

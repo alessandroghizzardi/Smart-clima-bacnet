@@ -35,17 +35,21 @@ const raggiunto = (modo, temp, obiettivo) => modo === RISC ? temp >= obiettivo :
 // "Mantieni temperatura" (fase.mant = {target, temp, ritorno}): quando la stanza raggiunge `target` le unità passano al setpoint
 // di mantenimento `temp` e lo tengono finché la stanza non arriva a `ritorno`; allora tornano al programma (fase.target).
 // Riscaldamento: temp ≤ ritorno < target. Raffrescamento: target < ritorno ≤ temp. Una mant senza queste soglie (vecchio formato) è ignorata.
+// Con mant.spegni = true, invece del setpoint di mantenimento l'unità si spegne e si riaccende al ritorno (temp non serve).
+// Tutto è per singola unità: ogni unità usa la temperatura della propria stanza, le altre non cambiano.
 const mantenimento = (fase) => fase.mant && fase.mant.target != null && fase.mant.ritorno != null ? fase.mant : null;
 
 // Decide setpoint e stato di UNA unità in una fase 'temp'.
-// prev: stato precedente {stato:'salita'|'target'|'mant'} (per isteresi). Ritorna {stato, setpoint}.
+// prev: stato precedente {stato:'salita'|'target'|'mant'} (per isteresi). Ritorna {stato, setpoint} e, se in mantenimento
+// con "si spegne", {stato:'mant', setpoint:null, spento:true}.
 function decidiUnita(fase, modo, temp, prev) {
   const t = fase.target, m = mantenimento(fase);
-  if (temp === null || temp === undefined) return { stato: prev?.stato || 'salita', setpoint: prev?.stato === 'mant' && m ? m.temp : t };   // lettura mancante: stato invariato
+  const mant = () => m.spegni ? { stato: 'mant', setpoint: null, spento: true } : { stato: 'mant', setpoint: m.temp };
+  if (temp === null || temp === undefined) return prev?.stato === 'mant' && m ? mant() : { stato: prev?.stato || 'salita', setpoint: t };   // lettura mancante: stato invariato
   if (m) {
     const tornato = modo === RISC ? temp <= m.ritorno : temp >= m.ritorno;
     const inMant = prev?.stato === 'mant' ? !tornato : raggiunto(modo, temp, m.target);
-    if (inMant) return { stato: 'mant', setpoint: m.temp };
+    if (inMant) return mant();
   }
   return { stato: raggiunto(modo, temp, t) ? 'target' : 'salita', setpoint: t };
 }
@@ -83,11 +87,13 @@ function valida(b, unitaNote, lim = { min: 16, max: 26 }) {
     if (i === 0) o.inizio = ora(f.inizio, 'inizio');
     if (f.oscillazione !== undefined && f.oscillazione !== null) o.oscillazione = !!f.oscillazione;
     if (f.mant) {
-      const m = { target: num(f.mant.target, 'target mantenimento'), temp: num(f.mant.temp, 'temperatura di mantenimento'), ritorno: num(f.mant.ritorno, 'ritorno al programma') };
+      const spegni = !!f.mant.spegni;                                                   // "si spegne": nessun setpoint di mantenimento
+      const m = spegni ? { target: num(f.mant.target, 'target mantenimento'), spegni: true, ritorno: num(f.mant.ritorno, 'ritorno al programma') }
+        : { target: num(f.mant.target, 'target mantenimento'), temp: num(f.mant.temp, 'temperatura di mantenimento'), ritorno: num(f.mant.ritorno, 'ritorno al programma') };
       const risc = modo === RISC, oltre = (x, y) => risc ? x > y : x < y;                  // "x è più verso il caldo/freddo di y"
       if (oltre(o.target, m.target)) throw new Error('il target del mantenimento non può essere ' + (risc ? 'sotto' : 'sopra') + ' la temperatura della fase');
       if (!oltre(m.target, m.ritorno)) throw new Error('il ritorno al programma deve essere ' + (risc ? 'sotto' : 'sopra') + ' il target');
-      if (oltre(m.temp, m.ritorno)) throw new Error('la temperatura di mantenimento non può essere ' + (risc ? 'sopra' : 'sotto') + ' il ritorno');
+      if (!spegni && oltre(m.temp, m.ritorno)) throw new Error('la temperatura di mantenimento non può essere ' + (risc ? 'sopra' : 'sotto') + ' il ritorno');
       o.mant = m;
     }
     return o;

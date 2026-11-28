@@ -9,7 +9,7 @@ test('rifiuta nome vuoto, duplicato, nessuna unità o unità ignota', () => {
   assert.throws(() => valida({ nome: ' ', unita: ['11'] }, note, es), /nome/);
   assert.throws(() => valida({ nome: 'soggiorno', unita: ['11'] }, note, es), /già/);
   assert.throws(() => valida({ nome: 'A', unita: [] }, note, es), /almeno/);
-  assert.throws(() => valida({ nome: 'A', unita: ['99'] }, note, es), /sconosciuta/);
+  assert.throws(() => valida({ nome: 'A', unita: ['99'] }, note, es), /non fa parte/);
 });
 test('in modifica il proprio nome non è un duplicato', () => {
   assert.equal(valida({ nome: 'Soggiorno', unita: ['12'] }, note, es, '1').nome, 'Soggiorno');

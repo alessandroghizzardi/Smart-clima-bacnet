@@ -65,6 +65,12 @@ npm run mock
 
 Avvia l'app sulla porta 3100 con un **impianto simulato in memoria** e un database temporaneo: non apre alcun socket BACnet e non tocca l'impianto reale. Ideale per provare l'interfaccia e gli scenari.
 
+Per vedere la schermata con l'impianto che non risponde:
+
+```bash
+MOCK_OFFLINE=on npm run mock
+```
+
 ### Prima prova sull'impianto reale
 
 L'app parte in sola lettura. Per controllare che la connessione funzioni senza inviare comandi:
@@ -123,7 +129,8 @@ Scheletro in `.github/workflows/`: `ci.yml` esegue i test su ogni PR; il deploy 
 Si lavora su branch `feature/<nome>` e si porta in `main` con una pull request.
 
 ```bash
-npm test        # test della logica degli scenari (nessun impianto necessario)
+npm test        # test della logica e del motore scenari (impianto simulato)
+npm run lint    # ESLint: da passare prima di ogni pull request
 npm run mock    # app completa con impianto simulato
 ```
 

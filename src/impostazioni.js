@@ -1,6 +1,7 @@
 // Impostazioni di sistema modificabili dall'app. I valori stanno nella tabella `impostazioni` (SQLite);
 // all'avvio sovrascrivono i default di config.js (che a loro volta vengono dalle variabili d'ambiente).
 const cfg = require('./config');
+const { nonValido } = require('./errori');
 
 // riavvio: true = il valore viene letto solo all'avvio del server
 const DEF = [
@@ -21,16 +22,18 @@ const metti = (p, v) => { const o = p.slice(0, -1).reduce((o, k) => o[k], cfg); 
 function pulisci(d, raw) {
   if (d.tipo === 'testo') {
     const s = String(raw ?? '').trim();
-    if (!s) throw new Error(`${d.label}: valore vuoto`);
-    if (d.ip && !/^(\d{1,3}\.){3}\d{1,3}$/.test(s)) throw new Error(`${d.label}: indirizzo IP non valido`);
+    if (!s) throw nonValido(`${d.label}: inserisci un valore`);
+    if (d.ip && !/^(\d{1,3}\.){3}\d{1,3}$/.test(s)) throw nonValido(`${d.label}: scrivi un indirizzo IP come 10.0.0.50`);
     return s;
   }
   const n = Number(String(raw).replace(',', '.'));
-  if (!Number.isFinite(n) || n < d.min || n > d.max || (d.tipo === 'int' && !Number.isInteger(n))) throw new Error(`${d.label}: deve essere tra ${d.min} e ${d.max}`);
+  if (!Number.isFinite(n) || n < d.min || n > d.max || (d.tipo === 'int' && !Number.isInteger(n))) throw nonValido(`${d.label}: scegli un valore tra ${d.min} e ${d.max}`);
   return n;
 }
 
-function applica(db) {
+let tx;                                   // transazione del database, passata da db.js (evita il require circolare)
+function applica(db, transazione) {
+  tx = transazione;
   db.exec('CREATE TABLE IF NOT EXISTS impostazioni (chiave TEXT PRIMARY KEY, valore TEXT NOT NULL, aggiornato INTEGER NOT NULL)');
   for (const r of db.prepare('SELECT chiave, valore FROM impostazioni').all()) {
     const d = DEF.find(x => x.k === r.chiave); if (!d) continue;
@@ -48,19 +51,16 @@ function ricordaAvvio() { for (const d of DEF) avvio[d.k] = prendi(d.path); }
 function salva(db, patch) {
   const nuovi = {};
   for (const [k, raw] of Object.entries(patch || {})) {
-    const d = DEF.find(x => x.k === k); if (!d) throw new Error('impostazione sconosciuta: ' + k);
+    const d = DEF.find(x => x.k === k); if (!d) throw nonValido(`Impostazione "${k}" non riconosciuta: ricarica la pagina e riprova`);
     nuovi[k] = pulisci(d, raw);
   }
   const get = (k, p) => k in nuovi ? nuovi[k] : prendi(p);
-  if (get('sp_min', ['setpoint', 'min']) >= get('sp_max', ['setpoint', 'max'])) throw new Error('Il setpoint minimo deve essere inferiore al massimo');
+  if (get('sp_min', ['setpoint', 'min']) >= get('sp_max', ['setpoint', 'max'])) throw nonValido('Il setpoint minimo deve essere inferiore al massimo');
   const ins = db.prepare('INSERT INTO impostazioni (chiave,valore,aggiornato) VALUES (?,?,?) ON CONFLICT(chiave) DO UPDATE SET valore=excluded.valore, aggiornato=excluded.aggiornato');
-  const cambi = [];
-  for (const [k, v] of Object.entries(nuovi)) {
-    const d = DEF.find(x => x.k === k);
-    if (prendi(d.path) === v) continue;
-    cambi.push(`${d.label}: ${prendi(d.path)} → ${v}`);
-    ins.run(k, JSON.stringify(v), Date.now()); metti(d.path, v);
-  }
+  const da = Object.entries(nuovi).map(([k, v]) => ({ d: DEF.find(x => x.k === k), v })).filter(({ d, v }) => prendi(d.path) !== v);
+  tx(() => da.forEach(({ d, v }) => ins.run(d.k, JSON.stringify(v), Date.now())));     // tutte o nessuna
+  const cambi = da.map(({ d, v }) => `${d.label}: ${prendi(d.path)} → ${v}`);
+  da.forEach(({ d, v }) => metti(d.path, v));                                        // in memoria solo dopo il salvataggio
   return cambi;
 }
 module.exports = { applica, elenco, salva, ricordaAvvio };

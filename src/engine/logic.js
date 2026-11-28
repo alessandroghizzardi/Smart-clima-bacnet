@@ -1,10 +1,20 @@
 // Logica pura del motore scenari: nessun I/O, nessun orologio implicito → facile da testare.
+const { nonValido } = require('../errori');
+const { MODO_FASE, TIPO_MODO } = require('./nomi');
 // Modo: 5 = riscaldamento, 1 = raffrescamento. "Meglio" = più caldo in riscaldamento, più freddo in raffrescamento.
 
 const RISC = 5;
 const minuti = (hhmm) => Number(hhmm.slice(0, 2)) * 60 + Number(hhmm.slice(3, 5));
 const hhmm = (m) => { m = ((m % 1440) + 1440) % 1440; return `${String(Math.floor(m / 60)).padStart(2, '0')}:${String(m % 60).padStart(2, '0')}`; };
 const arrotonda = (v) => Math.round(v * 2) / 2;
+
+// L'unico limite del setpoint di tutta l'app (scenari, comandi diretti, BACnet e simulatore): numero finito,
+// dentro {min,max} di cfg.setpoint, a passi di 0,5 °C. Un valore non numerico non arriva mai all'impianto.
+function limita(t, { min, max }) {
+  const n = typeof t === 'string' && t.trim() === '' ? NaN : Number(t);
+  if (!Number.isFinite(n)) throw nonValido('Temperatura non valida: scegli un valore in gradi, per esempio 20,5');
+  return arrotonda(Math.min(max, Math.max(min, n)));
+}
 
 // Confini delle fasi in minuti dalla mezzanotte del giorno di avvio. Ogni "fino" è dopo il precedente (se no, giorno dopo).
 // Le fasi 'vent' e 'deum' (solo ventilazione / deumidificazione) hanno orario ma nessuna temperatura.
@@ -66,18 +76,18 @@ function comandi(unitaId, letto, voluto) {
 
 // Validazione di uno scenario ricevuto dall'API. Ritorna lo scenario normalizzato o lancia Error.
 function valida(b, unitaNote, lim = { min: 16, max: 26 }) {
-  const nome = String(b.nome || '').trim(); if (!nome) throw new Error('nome mancante');
-  const modo = Number(b.modo); if (![1, 2, 3, 5].includes(modo)) throw new Error('modalità non valida (1 raff, 2 deum, 3 vent, 5 risc)');
-  const giorni = [...new Set((b.giorni || []).map(Number))].filter(g => g >= 0 && g <= 6).sort(); if (!giorni.length) throw new Error('scegli almeno un giorno');
-  const unita = [...new Set((b.unita || []).map(String))]; if (!unita.length) throw new Error('scegli almeno una unità');
-  unita.forEach(u => { if (!unitaNote[u]) throw new Error('unità sconosciuta ' + u); });
-  if (!Array.isArray(b.fasi) || !b.fasi.length) throw new Error('servono delle fasi');
-  const ora = (v, c) => { if (!/^\d\d:\d\d$/.test(v || '') || minuti(v) > 1439) throw new Error(`orario non valido (${c})`); return v; };
-  const num = (v, c) => { const n = Number(v); if (!(n >= lim.min && n <= lim.max)) throw new Error(`${c}: temperatura fuori da ${lim.min}–${lim.max}`); return arrotonda(n); };
-  if (b.fasi[0].tipo === 'off') throw new Error('la prima fase non può essere solo “Spegni impianto”');
+  const nome = String(b.nome || '').trim(); if (!nome) throw nonValido('Dai un nome allo scenario');
+  const modo = Number(b.modo); if (![1, 2, 3, 5].includes(modo)) throw nonValido('Scegli la modalità dello scenario: riscaldamento, raffrescamento, ventilazione o deumidificazione');
+  const giorni = [...new Set((b.giorni || []).map(Number))].filter(g => g >= 0 && g <= 6).sort(); if (!giorni.length) throw nonValido('Scegli almeno un giorno');
+  const unita = [...new Set((b.unita || []).map(String))]; if (!unita.length) throw nonValido('Scegli almeno un\'unità');
+  unita.forEach(u => { if (!unitaNote[u]) throw nonValido(`L'unità ${u} non fa parte dell'impianto: ricarica la pagina e riprova`); });
+  if (!Array.isArray(b.fasi) || !b.fasi.length) throw nonValido('Aggiungi almeno una fase');
+  const ora = (v, c) => { if (!/^\d\d:\d\d$/.test(v || '') || minuti(v) > 1439) throw nonValido(`Orario non valido (${c}): usa il formato ore:minuti, per esempio 07:30`); return v; };
+  const num = (v, c) => { const n = Number(v); if (!(n >= lim.min && n <= lim.max)) throw nonValido(`${c[0].toUpperCase() + c.slice(1)}: la temperatura deve stare tra ${lim.min}–${lim.max} °C`); return arrotonda(n); };
+  if (b.fasi[0].tipo === 'off') throw nonValido('La prima fase non può essere solo «Spegni impianto»');
   const fisso = TIPO_MODO[modo];                           // scenario Vent./Deum.: le fasi sono solo vent, deum o off (di default il tipo dello scenario)
   const fasi = b.fasi.map((f, i) => {
-    if (f.tipo === 'off') { if (i !== b.fasi.length - 1) throw new Error("'Spegni impianto' può essere solo l'ultima fase"); return { tipo: 'off', ...(i === 0 ? { inizio: ora(f.inizio, 'inizio') } : {}) }; }
+    if (f.tipo === 'off') { if (i !== b.fasi.length - 1) throw nonValido('«Spegni impianto» può essere solo l\'ultima fase'); return { tipo: 'off', ...(i === 0 ? { inizio: ora(f.inizio, 'inizio') } : {}) }; }
     if (fisso || f.tipo === 'vent' || f.tipo === 'deum') {      // ventilazione / deumidificazione: nessuna temperatura
       const v = { tipo: f.tipo === 'vent' || f.tipo === 'deum' ? f.tipo : fisso, nome: String(f.nome || `Fase ${i + 1}`), fino: ora(f.fino, `fase ${i + 1}`) };
       if (i === 0) v.inizio = ora(f.inizio, 'inizio');
@@ -91,9 +101,9 @@ function valida(b, unitaNote, lim = { min: 16, max: 26 }) {
       const m = spegni ? { target: num(f.mant.target, 'target mantenimento'), spegni: true, ritorno: num(f.mant.ritorno, 'ritorno al programma') }
         : { target: num(f.mant.target, 'target mantenimento'), temp: num(f.mant.temp, 'temperatura di mantenimento'), ritorno: num(f.mant.ritorno, 'ritorno al programma') };
       const risc = modo === RISC, oltre = (x, y) => risc ? x > y : x < y;                  // "x è più verso il caldo/freddo di y"
-      if (oltre(o.target, m.target)) throw new Error('il target del mantenimento non può essere ' + (risc ? 'sotto' : 'sopra') + ' la temperatura della fase');
-      if (!oltre(m.target, m.ritorno)) throw new Error('il ritorno al programma deve essere ' + (risc ? 'sotto' : 'sopra') + ' il target');
-      if (!spegni && oltre(m.temp, m.ritorno)) throw new Error('la temperatura di mantenimento non può essere ' + (risc ? 'sopra' : 'sotto') + ' il ritorno');
+      if (oltre(o.target, m.target)) throw nonValido('Il target del mantenimento non può essere ' + (risc ? 'sotto' : 'sopra') + ' la temperatura della fase');
+      if (!oltre(m.target, m.ritorno)) throw nonValido('Il ritorno al programma deve essere ' + (risc ? 'sotto' : 'sopra') + ' il target');
+      if (!spegni && oltre(m.temp, m.ritorno)) throw nonValido('La temperatura di mantenimento non può essere ' + (risc ? 'sopra' : 'sotto') + ' il ritorno');
       o.mant = m;
     }
     return o;
@@ -101,6 +111,4 @@ function valida(b, unitaNote, lim = { min: 16, max: 26 }) {
   return { nome, modo, giorni, gruppo: b.gruppo ? String(b.gruppo) : null, unita, fasi };
 }
 
-const MODO_FASE = { vent: 3, deum: 2 };
-const TIPO_MODO = { 3: 'vent', 2: 'deum' };            // modalità dello scenario → tipo delle sue fasi (solo vent/deum)
-module.exports = { MODO_FASE, TIPO_MODO, RISC, minuti, hhmm, confini, faseCorrente, decidiUnita, comandi, valida, raggiunto };
+module.exports = { MODO_FASE, TIPO_MODO, RISC, minuti, hhmm, arrotonda, limita, confini, faseCorrente, decidiUnita, comandi, valida, raggiunto };
